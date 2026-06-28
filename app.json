@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "스마트 공중화장실 키오스크",
+    "slug": "smart-toilet-kiosk",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#EAF0F9",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "kr.go.smarttoilet.kiosk",
+      "screenOrientation": "landscape"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "kr.go.smarttoilet.kiosk"
+    }
+  }
+}
