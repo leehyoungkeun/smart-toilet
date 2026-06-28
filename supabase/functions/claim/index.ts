@@ -1,0 +1,127 @@
+// 폰이 QR 스캔으로 여는 모바일 웹페이지 — 무상 생리용품 수령 (본인인증 없이 간이 동의)
+// URL: https://<project-ref>.supabase.co/functions/v1/claim?token=XXXX
+// GET 요청에 HTML 한 장을 돌려주고, 페이지 JS 가 같은 도메인의 REST RPC 를 호출한다.
+//   get_dispense_session(token) → 화장실/재고 표시
+//   authorize_dispense(token, consent) → 재고차감 + 지급 (키오스크는 Realtime 으로 반영)
+// 배포 시 "Verify JWT" 는 OFF (폰은 JWT 가 없는 공개 접근).
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+function renderPage(token: string): string {
+  const cfg = JSON.stringify({ url: SUPABASE_URL, key: ANON_KEY, token });
+  return `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>무상 생리용품 수령</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+         background:#EAF0F9; color:#16223C; }
+  .wrap { max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; }
+  .header { background:linear-gradient(90deg,#15408F,#2C6CD0); color:#fff; padding:22px 20px; }
+  .kicker { font-size:13px; opacity:.85; }
+  .title { font-size:22px; font-weight:700; margin-top:2px; }
+  .body { flex:1; padding:20px; }
+  .card { background:#fff; border:1px solid #ECF1F9; border-radius:18px; padding:22px; box-shadow:0 8px 24px rgba(21,55,110,.05); }
+  .loc { font-size:20px; font-weight:700; }
+  .sub { color:#6B7A95; font-size:14px; margin-top:4px; }
+  .pill { display:inline-block; background:#E4F6EC; color:#138A55; font-weight:700; font-size:13px; border-radius:999px; padding:5px 12px; margin-top:14px; }
+  .pill.warn { background:#FCEFD6; color:#B5730A; }
+  .terms { background:#F7F9FD; border:1px solid #EAF0F8; border-radius:14px; padding:16px; margin-top:20px; font-size:14px; color:#5C6B86; line-height:1.6; }
+  label.consent { display:flex; align-items:flex-start; gap:10px; margin-top:18px; font-size:15px; cursor:pointer; }
+  label.consent input { width:22px; height:22px; margin-top:1px; accent-color:#2C6CD0; }
+  .btn { width:100%; border:0; border-radius:14px; padding:18px; font-size:18px; font-weight:700; margin-top:22px;
+         background:#2C6CD0; color:#fff; box-shadow:0 8px 20px rgba(44,108,208,.3); }
+  .btn:disabled { background:#D7DEEA; color:#9AA7BD; box-shadow:none; }
+  .center { text-align:center; padding:40px 22px; }
+  .icon { width:84px; height:84px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 18px; font-size:42px; }
+  .ok { background:#E4F6EC; } .bad { background:#FBE3E3; }
+  .big { font-size:24px; font-weight:700; } .muted { color:#6B7A95; font-size:15px; margin-top:8px; }
+  .spinner { width:54px;height:54px;border-radius:50%;border:6px solid #E3ECF8;border-top-color:#2C6CD0;
+             margin:0 auto;animation:spin .9s linear infinite; } @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header"><div class="kicker">경기도 스마트 공중화장실</div><div class="title">무상 생리용품 수령</div></div>
+  <div class="body" id="root"><div class="center"><div class="spinner"></div><p class="muted">확인 중입니다…</p></div></div>
+</div>
+<script>
+const CFG = ${cfg};
+const root = document.getElementById('root');
+
+async function rpc(fn, body){
+  const r = await fetch(CFG.url + '/rest/v1/rpc/' + fn, {
+    method:'POST',
+    headers:{ apikey:CFG.key, Authorization:'Bearer '+CFG.key, 'Content-Type':'application/json' },
+    body: JSON.stringify(body||{})
+  });
+  if(!r.ok) throw new Error('request failed');
+  return r.json();
+}
+
+function screenError(title, sub){
+  root.innerHTML = '<div class="center"><div class="icon bad">✕</div><div class="big">'+title+'</div><p class="muted">'+(sub||'')+'</p></div>';
+}
+function screenDone(){
+  root.innerHTML = '<div class="center"><div class="icon ok">✓</div><div class="big">지급이 완료되었습니다</div>'
+    + '<p class="muted">키오스크 하단 지급구에서 생리용품을 수령해 주세요.<br/>건강하고 편안한 하루 되세요.</p></div>';
+}
+
+function screenConsent(info){
+  root.innerHTML =
+    '<div class="card">'
+    + '<div class="loc">'+ (info.location_name||'공중화장실') +'</div>'
+    + '<div class="sub">'+ (info.item_label||'생리용품') +' · 1일 1회 무료 제공</div>'
+    + (info.available ? '<span class="pill">지급 가능</span>' : '<span class="pill warn">재고 소진</span>')
+    + '<div class="terms">· 무상 생리용품은 여성·청소년 누구나 1일 1회 받을 수 있습니다.<br/>'
+    + '· 수령을 위해 아래 안내에 동의해 주세요. 별도 본인인증은 받지 않습니다.</div>'
+    + '<label class="consent"><input type="checkbox" id="agree"/> <span>안내 사항을 확인했으며 수령에 동의합니다.</span></label>'
+    + '<button class="btn" id="go" disabled>생리용품 받기</button>'
+    + '</div>';
+  const agree = document.getElementById('agree');
+  const go = document.getElementById('go');
+  if(!info.available){ go.textContent = '현재 지급할 수 없습니다'; }
+  agree.addEventListener('change', ()=>{ go.disabled = !(agree.checked && info.available); });
+  go.addEventListener('click', authorize);
+}
+
+async function authorize(){
+  const go = document.getElementById('go');
+  go.disabled = true; go.textContent = '처리 중…';
+  try {
+    const res = await rpc('authorize_dispense', { p_token: CFG.token, p_consent: true });
+    if(res && res.success){ screenDone(); return; }
+    const reason = res && res.reason;
+    const map = { out_of_stock:'재고가 소진되었습니다.', expired:'QR이 만료되었습니다. 키오스크에서 다시 시작해 주세요.',
+                  already_used:'이미 처리된 요청입니다.', invalid:'유효하지 않은 코드입니다.' };
+    screenError('수령할 수 없습니다', map[reason] || '잠시 후 다시 시도해 주세요.');
+  } catch(e){ screenError('오류가 발생했습니다', '네트워크 상태를 확인해 주세요.'); }
+}
+
+(async function(){
+  if(!CFG.token){ screenError('잘못된 접근입니다', 'QR 코드를 다시 스캔해 주세요.'); return; }
+  try {
+    const info = await rpc('get_dispense_session', { p_token: CFG.token });
+    if(!info || !info.found){ screenError('유효하지 않은 코드입니다', 'QR 코드를 다시 스캔해 주세요.'); return; }
+    if(info.status === 'dispensed'){ screenDone(); return; }
+    if(info.status === 'expired'){ screenError('QR이 만료되었습니다', '키오스크에서 다시 시작해 주세요.'); return; }
+    if(info.status === 'cancelled'){ screenError('취소된 요청입니다', '키오스크에서 다시 시작해 주세요.'); return; }
+    screenConsent(info);
+  } catch(e){ screenError('오류가 발생했습니다', '잠시 후 다시 시도해 주세요.'); }
+})();
+</script>
+</body>
+</html>`;
+}
+
+Deno.serve((req: Request) => {
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token") ?? "";
+  return new Response(renderPage(token), {
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+  });
+});
