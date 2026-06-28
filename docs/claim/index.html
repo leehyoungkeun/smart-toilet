@@ -46,6 +46,17 @@ const CFG = {
 };
 const root = document.getElementById('root');
 
+// 폰 브라우저별 영구 식별값 (1일 1회 제한 기준). 본인인증 대체 — 느슨함.
+function claimantId(){
+  let id = localStorage.getItem('claimant_id');
+  if(!id){
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+         : 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    localStorage.setItem('claimant_id', id);
+  }
+  return id;
+}
+
 async function rpc(fn, body){
   const r = await fetch(CFG.url + '/rest/v1/rpc/' + fn, {
     method:'POST',
@@ -86,9 +97,13 @@ async function authorize(){
   const go = document.getElementById('go');
   go.disabled = true; go.textContent = '처리 중…';
   try {
-    const res = await rpc('authorize_dispense', { p_token: CFG.token, p_consent: true });
+    const res = await rpc('authorize_dispense', { p_token: CFG.token, p_consent: true, p_claimant_id: claimantId() });
     if(res && res.success){ screenDone(); return; }
     const reason = res && res.reason;
+    if(reason === 'already_claimed_today'){
+      screenError('오늘은 이미 수령하셨습니다', '무상 생리용품은 1일 1회 제공됩니다.<br/>내일 다시 이용해 주세요.');
+      return;
+    }
     const map = { out_of_stock:'재고가 소진되었습니다.', expired:'QR이 만료되었습니다. 키오스크에서 다시 시작해 주세요.',
                   already_used:'이미 처리된 요청입니다.', invalid:'유효하지 않은 코드입니다.' };
     screenError('수령할 수 없습니다', map[reason] || '잠시 후 다시 시도해 주세요.');
