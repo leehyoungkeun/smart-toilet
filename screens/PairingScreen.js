@@ -31,18 +31,19 @@ export default function PairingScreen() {
         <TextInput
           style={s.input}
           value={code}
-          onChangeText={setCode}
-          placeholder="PAIR-XXXX-000"
+          onChangeText={(t) => setCode(t.toUpperCase())}
+          placeholder="4자리 코드"
           placeholderTextColor={colors.subtle}
           autoCapitalize="characters"
           autoCorrect={false}
+          maxLength={12}
           editable={!busy}
         />
         {!!err && <Text style={s.err}>{err}</Text>}
         <TouchableOpacity activeOpacity={0.9} onPress={submit} style={[s.cta, busy && { opacity: 0.6 }]} disabled={busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.ctaText}>등록하기</Text>}
         </TouchableOpacity>
-        <Text style={s.hint}>데모 코드 예: PAIR-SUWON-001</Text>
+        <Text style={s.hint}>콘솔에서 발급된 페어링 코드를 입력하세요</Text>
       </View>
     </View>
   );
