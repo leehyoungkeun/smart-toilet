@@ -133,11 +133,11 @@ function renderFilters(){
     <div class="frow"><div class="flabel">지역</div>
       <select id="region" style="min-width:160px"><option value="">전체 지역</option>${regions().map(r=>`<option ${f.region===r?'selected':''}>${esc(r)}</option>`).join('')}</select></div>
     <div class="frow"><div class="flabel">화장실 상태</div>
-      ${chip('status','','전체')}${chip('status','active','운영중',count(l=>l.status==='active'))}${chip('status','maintenance','점검중',count(l=>l.status==='maintenance'))}${chip('status','inactive','중지',count(l=>l.status==='inactive'))}</div>
+      ${chip('status','','전체')}${chip('status','active','운영중',count(l=>!l.deleted&&l.status==='active'))}${chip('status','maintenance','점검중',count(l=>!l.deleted&&l.status==='maintenance'))}${chip('status','inactive','중지',count(l=>!l.deleted&&l.status==='inactive'))}${chip('status','deleted','삭제됨',count(l=>l.deleted))}</div>
     <div class="frow"><div class="flabel">접속 상태</div>
-      ${chip('online','','전체')}${chip('online','on','온라인',count(l=>l.online))}${chip('online','off','오프라인',count(l=>!l.online))}</div>
+      ${chip('online','','전체')}${chip('online','on','온라인',count(l=>!l.deleted&&l.online))}${chip('online','off','오프라인',count(l=>!l.deleted&&!l.online))}</div>
     <div class="frow"><div class="flabel">재고</div>
-      ${chip('stock','','전체')}${chip('stock','ok','정상',count(l=>l.pad_qty>10))}${chip('stock','low','부족',count(l=>l.pad_qty!=null&&l.pad_qty<=10))}</div>
+      ${chip('stock','','전체')}${chip('stock','ok','정상',count(l=>!l.deleted&&l.pad_qty>10))}${chip('stock','low','부족',count(l=>!l.deleted&&l.pad_qty!=null&&l.pad_qty<=10))}</div>
     <div class="frow"><div class="flabel">등록기간</div>
       <button class="chip" data-p="1">오늘</button><button class="chip" data-p="7">7일</button><button class="chip" data-p="30">1개월</button><button class="chip" data-p="90">3개월</button><button class="chip" data-p="365">1년</button>
       <input id="from" type="date" value="${f.from?f.from.toISOString().slice(0,10):''}"/> ~ <input id="to" type="date" value="${f.to?f.to.toISOString().slice(0,10):''}"/></div>
@@ -155,9 +155,10 @@ function renderFilters(){
 function applyFilters(){
   const f=state.filters;
   return state.locs.filter(l=>{
+    if(f.status==='deleted'){ if(!l.deleted) return false; }
+    else { if(l.deleted) return false; if(f.status && l.status!==f.status) return false; }
     if(f.q){ const s=(l.code+' '+l.name+' '+(l.org_name||'')+' '+(l.sigungu||'')+' '+(l.sido||'')).toLowerCase(); if(!s.includes(f.q.toLowerCase())) return false; }
     if(f.region && l.sido!==f.region) return false;
-    if(f.status && l.status!==f.status) return false;
     if(f.online==='on' && !l.online) return false;
     if(f.online==='off' && l.online) return false;
     if(f.stock==='ok' && !(l.pad_qty>10)) return false;
@@ -170,7 +171,7 @@ function applyFilters(){
 function renderAll(){ renderStats(); renderTable(); }
 
 function renderStats(){
-  const L=state.locs;
+  const L=state.locs.filter(l=>!l.deleted);
   const off=L.filter(l=>!l.online).length, low=L.filter(l=>l.pad_qty!=null&&l.pad_qty<=10).length;
   const comp=L.reduce((a,l)=>a+(l.open_complaints||0),0);
   const ok=L.filter(l=>l.online&&l.pad_qty>10&&(l.open_complaints||0)===0).length;
@@ -187,8 +188,8 @@ function renderTable(){
   const ps=state.pageSize, pages=Math.max(1,Math.ceil(total/ps)); if(state.page>pages) state.page=pages;
   const rows=all.slice((state.page-1)*ps, state.page*ps);
   const body=rows.map((l,i)=>{
-    const st=STATUS[l.status]||{l:l.status,c:'b-x'};
-    return `<tr>
+    const st=l.deleted?{l:'삭제됨',c:'b-r'}:(STATUS[l.status]||{l:l.status,c:'b-x'});
+    return `<tr${l.deleted?' style="opacity:.6"':''}>
       <td class="muted">${(state.page-1)*ps+i+1}</td>
       <td><code>${esc(l.code)}</code></td>
       <td><span class="lnk" data-id="${l.id}">${esc(l.name)}</span></td>
@@ -248,17 +249,18 @@ function detail(id){
       ${row('환경(더미)',l.temperature==null?'-':`${l.temperature}°C · ${l.humidity}% · PM${l.pm25} (${fmtDt(l.env_at)})`)}
       ${row('등록일',fmtDate(l.created_at))}
     </div>
-    ${admin?`<div style="display:flex;gap:8px;margin-top:18px">
-      <button class="btn" data-edit>수정</button>
-      <button class="btn line" style="color:#D25151;border-color:#F3C2C2" data-del>삭제</button></div>`:''}`);
+    ${admin?`<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
+      ${l.deleted
+        ? `<button class="btn" data-restore>복원</button>`
+        : `<button class="btn" data-edit>수정</button><button class="btn line" style="color:#B5730A;border-color:#F0D9AF" data-soft>삭제(보관)</button>`}
+      <button class="btn line" style="color:#D25151;border-color:#F3C2C2" data-hard>완전 삭제</button></div>`:''}`);
   bd.querySelector('[data-x]').onclick=()=>bd.remove();
+  const act=async(fn,body,after)=>{ try{ await rpc(fn,body); bd.remove(); renderDashboard(); }catch(e){ alert((after||'실패')+': '+e.message); } };
   if(admin){
-    bd.querySelector('[data-edit]').onclick=()=>{ bd.remove(); openEdit(l); };
-    bd.querySelector('[data-del]').onclick=async()=>{
-      if(!confirm(`'${l.name}' 화장실을 삭제할까요?\n연결된 단말·재고·민원·기록이 모두 함께 삭제됩니다.`)) return;
-      try{ await rpc('admin_delete_location',{p_id:l.id}); bd.remove(); renderDashboard(); }
-      catch(e){ alert('삭제 실패: '+e.message); }
-    };
+    const edit=bd.querySelector('[data-edit]'); if(edit) edit.onclick=()=>{ bd.remove(); openEdit(l); };
+    const soft=bd.querySelector('[data-soft]'); if(soft) soft.onclick=()=>{ if(confirm(`'${l.name}'을(를) 삭제(보관) 처리할까요?\n목록에서 숨겨지고 '삭제됨' 필터에서 복원할 수 있습니다.`)) act('admin_soft_delete_location',{p_id:l.id},'삭제 실패'); };
+    const restore=bd.querySelector('[data-restore]'); if(restore) restore.onclick=()=>act('admin_restore_location',{p_id:l.id},'복원 실패');
+    const hard=bd.querySelector('[data-hard]'); if(hard) hard.onclick=()=>{ if(confirm(`[완전 삭제] '${l.name}'\n단말·재고·민원·지급/만족도 기록이 영구 삭제됩니다. 되돌릴 수 없습니다.\n\n계속할까요?`)) act('admin_delete_location',{p_id:l.id},'완전삭제 실패'); };
   }
 }
 
