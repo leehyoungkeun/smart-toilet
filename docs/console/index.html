@@ -226,13 +226,16 @@ function renderTable(){
   t.querySelectorAll('.lnk').forEach(el=>el.onclick=()=>detail(el.dataset.id));
 }
 
+function modalEl(html){ const bd=document.createElement('div'); bd.className='backdrop'; bd.innerHTML=`<div class="modal">${html}</div>`;
+  bd.onclick=e=>{ if(e.target===bd) bd.remove(); }; document.body.appendChild(bd); return bd; }
+
 function detail(id){
   const l=state.locs.find(x=>String(x.id)===String(id)); if(!l) return;
   const st=STATUS[l.status]||{l:l.status};
   const row=(k,v)=>`<div class="k">${k}</div><div>${v}</div>`;
-  const bd=document.createElement('div'); bd.className='backdrop';
-  bd.innerHTML=`<div class="modal"><div style="display:flex;justify-content:space-between;align-items:center">
-    <h2 style="margin:0">${esc(l.name)}</h2><button class="btn sm line" id="x">닫기</button></div>
+  const admin=canAdd();
+  const bd=modalEl(`<div style="display:flex;justify-content:space-between;align-items:center">
+    <h2 style="margin:0">${esc(l.name)}</h2><button class="btn sm line" data-x>닫기</button></div>
     <div class="kv">
       ${row('코드',`<code>${esc(l.code)}</code>`)}
       ${row('소속',esc(l.org_name||'-'))}
@@ -244,9 +247,44 @@ function detail(id){
       ${row('미처리 민원',(l.open_complaints||0)+'건')}
       ${row('환경(더미)',l.temperature==null?'-':`${l.temperature}°C · ${l.humidity}% · PM${l.pm25} (${fmtDt(l.env_at)})`)}
       ${row('등록일',fmtDate(l.created_at))}
-    </div></div>`;
-  bd.onclick=e=>{ if(e.target===bd||e.target.id==='x') bd.remove(); };
-  document.body.appendChild(bd);
+    </div>
+    ${admin?`<div style="display:flex;gap:8px;margin-top:18px">
+      <button class="btn" data-edit>수정</button>
+      <button class="btn line" style="color:#D25151;border-color:#F3C2C2" data-del>삭제</button></div>`:''}`);
+  bd.querySelector('[data-x]').onclick=()=>bd.remove();
+  if(admin){
+    bd.querySelector('[data-edit]').onclick=()=>{ bd.remove(); openEdit(l); };
+    bd.querySelector('[data-del]').onclick=async()=>{
+      if(!confirm(`'${l.name}' 화장실을 삭제할까요?\n연결된 단말·재고·민원·기록이 모두 함께 삭제됩니다.`)) return;
+      try{ await rpc('admin_delete_location',{p_id:l.id}); bd.remove(); renderDashboard(); }
+      catch(e){ alert('삭제 실패: '+e.message); }
+    };
+  }
+}
+
+function openEdit(l){
+  const opt=(v,lab)=>`<option value="${v}" ${l.status===v?'selected':''}>${lab}</option>`;
+  const bd=modalEl(`<h2 style="margin:0 0 14px">화장실 수정 — ${esc(l.code)}</h2>
+    <div class="grid2">
+      <div><label class="f">이름</label><input id="e_name" value="${esc(l.name)}"/></div>
+      <div><label class="f">상태</label><select id="e_status">${opt('active','운영중')}${opt('maintenance','점검중')}${opt('inactive','중지')}</select></div>
+      <div><label class="f">시·도</label><input id="e_sido" value="${esc(l.sido||'')}"/></div>
+      <div><label class="f">시·군·구</label><input id="e_sigungu" value="${esc(l.sigungu||'')}"/></div>
+      <div><label class="f">재고 (최대 ${l.pad_cap??30})</label><input id="e_stock" type="number" value="${l.pad_qty??0}"/></div>
+    </div><div id="e_msg" style="margin:10px 0"></div>
+    <div style="display:flex;gap:8px"><button class="btn" data-save>저장</button><button class="btn line" data-x>취소</button></div>`);
+  bd.querySelectorAll('input,select').forEach(el=>el.style.width='100%');
+  bd.querySelector('[data-x]').onclick=()=>bd.remove();
+  bd.querySelector('[data-save]').onclick=async()=>{
+    const q=s=>bd.querySelector(s);
+    try{
+      await rpc('admin_update_location',{ p_id:l.id,
+        p_name:q('#e_name').value.trim()||null, p_sido:q('#e_sido').value.trim()||null,
+        p_sigungu:q('#e_sigungu').value.trim()||null, p_status:q('#e_status').value,
+        p_stock:parseInt(q('#e_stock').value||'0',10) });
+      bd.remove(); renderDashboard();
+    }catch(e){ q('#e_msg').innerHTML=`<div class="err">저장 실패: ${esc(e.message)}</div>`; }
+  };
 }
 
 // ── 화장실 추가 ──
