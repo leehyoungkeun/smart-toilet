@@ -6,214 +6,314 @@
 <title>스마트 화장실 운영 콘솔</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:#EAF0F9; color:#16223C; }
-  .header { background:linear-gradient(90deg,#15408F,#2C6CD0); color:#fff; padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
-  .header .t { font-size:20px; font-weight:700; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:#EEF1F6; color:#1B2540; }
+  .header { background:linear-gradient(90deg,#15408F,#2C6CD0); color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+  .header .t { font-size:19px; font-weight:700; cursor:pointer; }
   .header .r { display:flex; align-items:center; gap:12px; font-size:14px; }
-  .btn { border:0; border-radius:10px; padding:9px 16px; font-weight:600; font-size:14px; cursor:pointer; background:#2C6CD0; color:#fff; }
-  .btn.ghost { background:rgba(255,255,255,.15); color:#fff; }
+  .btn { border:0; border-radius:9px; padding:9px 15px; font-weight:600; font-size:14px; cursor:pointer; background:#4353E0; color:#fff; }
+  .btn.ghost { background:rgba(255,255,255,.16); color:#fff; }
+  .btn.line { background:#fff; color:#4353E0; border:1px solid #D6DCEC; }
   .btn.sm { padding:6px 12px; font-size:13px; }
-  .wrap { max-width:1200px; margin:0 auto; padding:24px; }
-  .login { max-width:400px; margin:8vh auto; background:#fff; border:1px solid #ECF1F9; border-radius:18px; padding:32px; }
-  .login h1 { font-size:22px; margin:0 0 4px; }
-  .login p { color:#6B7A95; font-size:14px; margin:0 0 20px; }
-  input,select,textarea { width:100%; border:1px solid #E2E9F4; border-radius:12px; padding:12px 14px; font-size:15px; margin-bottom:12px; font-family:inherit; }
-  textarea { min-height:180px; resize:vertical; white-space:pre; }
-  .err { color:#E0322F; font-size:14px; margin:6px 0; }
-  .ok { color:#138A55; font-size:14px; margin:6px 0; }
-  .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px; }
-  .kpi { background:#fff; border:1px solid #ECF1F9; border-radius:14px; padding:16px; }
-  .kpi .l { font-size:13px; color:#6B7A95; }
-  .kpi .v { font-size:26px; font-weight:700; margin-top:4px; }
-  .kpi .v.warn { color:#B5730A; } .kpi .v.bad { color:#E0322F; } .kpi .v.ok { color:#1FA463; }
-  .card { background:#fff; border:1px solid #ECF1F9; border-radius:16px; overflow:hidden; }
-  .pad { padding:22px; }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th,td { text-align:left; padding:12px 14px; border-bottom:1px solid #F0F3F9; white-space:nowrap; }
-  th { background:#F7F9FD; color:#6B7A95; font-weight:600; font-size:12px; }
-  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
-  .on { background:#1FA463; } .off { background:#C7CFDB; }
-  .pill { border-radius:999px; padding:3px 9px; font-size:12px; font-weight:700; }
-  .pill.low { background:#FCEFD6; color:#B5730A; } .pill.okp { background:#E4F6EC; color:#138A55; }
-  .pill.bad { background:#FBE3E3; color:#C42B28; }
-  .muted { color:#8492AB; }
-  .bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .bar h2 { font-size:18px; margin:0; }
+  .wrap { max-width:1280px; margin:0 auto; padding:20px; }
+  .login { max-width:400px; margin:8vh auto; background:#fff; border:1px solid #E5E9F2; border-radius:18px; padding:32px; }
+  .login h1 { font-size:22px; margin:0 0 4px; } .login p { color:#6B7A95; font-size:14px; margin:0 0 20px; }
+  input,select,textarea { border:1px solid #DCE2EE; border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit; background:#fff; }
+  textarea { width:100%; min-height:160px; white-space:pre; }
+  .err { color:#E0322F; font-size:14px; margin:6px 0; } .ok { color:#138A55; font-size:14px; margin:6px 0; }
+  .muted { color:#8A94A9; }
+  code { background:#EEF1FA; padding:2px 6px; border-radius:6px; font-size:13px; }
+
+  /* 필터 카드 */
+  .fcard { background:#fff; border:1px solid #E5E9F2; border-radius:14px; overflow:hidden; margin-bottom:16px; }
+  .fhead { background:#3C4761; color:#fff; font-weight:700; font-size:15px; padding:12px 18px; }
+  .frow { display:flex; align-items:center; gap:10px; padding:11px 18px; border-bottom:1px solid #F0F2F7; flex-wrap:wrap; }
+  .frow:last-child { border-bottom:0; }
+  .flabel { width:88px; color:#5C6B86; font-size:14px; font-weight:600; flex-shrink:0; }
+  .chip { border:1px solid #DCE2EE; background:#fff; color:#48536B; border-radius:8px; padding:7px 13px; font-size:13px; font-weight:600; cursor:pointer; }
+  .chip.on { background:#4353E0; color:#fff; border-color:#4353E0; }
+  .chip .c { opacity:.7; font-weight:500; }
+  .factions { display:flex; justify-content:center; gap:10px; padding:14px; background:#FAFBFD; }
+
+  /* 통계 카드 */
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:16px; }
+  .stat { background:#fff; border:1px solid #E5E9F2; border-radius:14px; padding:18px 20px; display:flex; align-items:center; gap:14px; }
+  .stat .ic { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .stat .v { font-size:28px; font-weight:800; line-height:1; }
+  .stat .l { font-size:13px; color:#7A869C; margin-top:5px; }
+
+  /* 표 */
+  .tcard { background:#fff; border:1px solid #E5E9F2; border-radius:14px; overflow:hidden; }
+  .tbar { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid #F0F2F7; }
+  .tbar h2 { font-size:16px; margin:0; } .tbar .tools { display:flex; gap:8px; align-items:center; }
+  .tscroll { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; min-width:900px; }
+  th,td { text-align:left; padding:11px 14px; border-bottom:1px solid #F1F3F8; white-space:nowrap; }
+  th { background:#F7F9FC; color:#6B7A95; font-weight:600; font-size:12px; }
+  tr:hover td { background:#FBFCFE; }
+  .lnk { color:#3B5BDB; font-weight:600; cursor:pointer; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; }
+  .on{background:#22A667;} .off{background:#D25151;}
+  .badge { border-radius:7px; padding:3px 9px; font-size:12px; font-weight:700; display:inline-block; }
+  .b-g{background:#E4F6EC;color:#138A55;} .b-a{background:#FCEFD6;color:#B5730A;} .b-x{background:#EDEFF4;color:#69748C;}
+  .b-r{background:#FBE3E3;color:#C42B28;} .b-b{background:#E3EDFB;color:#2C6CD0;}
+  .pager { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; }
+  .pager .pg { display:flex; gap:6px; align-items:center; }
+  /* 모달 */
+  .backdrop { position:fixed; inset:0; background:rgba(20,30,55,.5); display:flex; align-items:center; justify-content:center; z-index:50; }
+  .modal { background:#fff; border-radius:16px; width:520px; max-width:92%; max-height:88vh; overflow:auto; padding:24px; }
+  .kv { display:grid; grid-template-columns:120px 1fr; gap:8px 12px; font-size:14px; margin-top:12px; }
+  .kv .k { color:#7A869C; }
   .tabs { display:flex; gap:8px; margin-bottom:16px; }
-  .tab { padding:8px 16px; border-radius:10px; background:#fff; border:1px solid #E2E9F4; cursor:pointer; font-weight:600; font-size:14px; }
-  .tab.active { background:#2C6CD0; color:#fff; border-color:#2C6CD0; }
+  .tab { padding:8px 16px; border-radius:9px; background:#fff; border:1px solid #DCE2EE; cursor:pointer; font-weight:600; font-size:14px; }
+  .tab.active { background:#4353E0; color:#fff; border-color:#4353E0; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   label.f { font-size:13px; color:#6B7A95; display:block; margin-bottom:4px; }
-  code { background:#F3F7FD; padding:2px 6px; border-radius:6px; font-size:13px; }
+  .card.pad { background:#fff; border:1px solid #E5E9F2; border-radius:14px; padding:22px; }
+  input,select { width:100%; margin-bottom:2px; }
 </style>
 </head>
 <body>
 <div id="app"></div>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const SUPABASE_URL='https://jrcvrlyvkdoxtjlhmapm.supabase.co';
+const SUPABASE_KEY='sb_publishable_JD6Mcz3_Hk2N5jX0zauvLg_pGihCjYn';
+const supabase=createClient(SUPABASE_URL,SUPABASE_KEY);
+const app=document.getElementById('app');
+const state={ role:null, profile:{}, orgs:[], locs:[], filters:{}, page:1, pageSize:20 };
+const ROLE_LABEL={platform_admin:'플랫폼 관리자(전체)',org_admin:'지자체 관리자',operator:'운영자'};
+const STATUS={active:{l:'운영중',c:'b-g'},maintenance:{l:'점검중',c:'b-a'},inactive:{l:'중지',c:'b-x'}};
+const canAdd=()=>state.role==='platform_admin'||state.role==='org_admin';
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+async function rpc(fn,body){const{data,error}=await supabase.rpc(fn,body||{});if(error)throw error;return data;}
+function download(name,text){const b=new Blob([text],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
+function fmtDate(iso){try{const n=new Date(iso);const p=x=>String(x).padStart(2,'0');return `${n.getFullYear()}. ${p(n.getMonth()+1)}. ${p(n.getDate())}`;}catch{return'';}}
+function fmtDt(iso){try{const n=new Date(iso);const p=x=>String(x).padStart(2,'0');return `${p(n.getMonth()+1)}.${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`;}catch{return'-';}}
+function defFilters(){return{q:'',region:'',status:'',online:'',stock:'',from:null,to:null};}
 
-const SUPABASE_URL = 'https://jrcvrlyvkdoxtjlhmapm.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_JD6Mcz3_Hk2N5jX0zauvLg_pGihCjYn';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const app = document.getElementById('app');
-const state = { role: null, orgs: [] };
-
-const ROLE_LABEL = { platform_admin:'플랫폼 관리자(전체)', org_admin:'지자체 관리자', operator:'운영자' };
-const canAdd = () => state.role === 'platform_admin' || state.role === 'org_admin';
-function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-async function rpc(fn, body){ const { data, error } = await supabase.rpc(fn, body||{}); if(error) throw error; return data; }
-function download(name, text){ const b=new Blob([text],{type:'text/csv;charset=utf-8'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
-
-// ── 로그인 ──────────────────────────────────────────────
+// ── 로그인 ──
 function renderLogin(msg){
-  app.innerHTML = `
-    <div class="login">
-      <h1>운영 콘솔 로그인</h1>
-      <p>지자체·단체 계정으로 로그인하면 담당 화장실만 표시됩니다.</p>
-      <input id="email" type="email" placeholder="이메일" autocomplete="username" />
-      <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password" />
-      ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
-      <button class="btn" id="go" style="width:100%;padding:14px;">로그인</button>
-    </div>`;
-  document.getElementById('go').onclick = async () => {
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('pw').value;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return renderLogin('로그인 실패: 이메일/비밀번호를 확인하세요.');
-    boot();
+  app.innerHTML=`<div class="login"><h1>운영 콘솔 로그인</h1><p>지자체·단체 계정으로 로그인하면 담당 화장실만 표시됩니다.</p>
+    <input id="email" type="email" placeholder="이메일" style="width:100%;margin-bottom:12px" autocomplete="username"/>
+    <input id="pw" type="password" placeholder="비밀번호" style="width:100%;margin-bottom:12px" autocomplete="current-password"/>
+    ${msg?`<div class="err">${esc(msg)}</div>`:''}<button class="btn" id="go" style="width:100%;padding:13px">로그인</button></div>`;
+  document.getElementById('go').onclick=async()=>{
+    const{error}=await supabase.auth.signInWithPassword({email:email.value.trim(),password:pw.value});
+    if(error)return renderLogin('로그인 실패: 이메일/비밀번호를 확인하세요.'); boot();
   };
 }
-
-function shell(inner){
-  return `<div class="header"><div class="t" id="home" style="cursor:pointer">스마트 화장실 운영 콘솔</div>
-    <div class="r"><span class="muted">${esc((state.profile?.full_name?state.profile.full_name+' · ':'')+(ROLE_LABEL[state.role]||'권한 없음'))}</span>
-    ${canAdd()?'<button class="btn ghost sm" id="add">＋ 화장실 추가</button>':''}
+function shell(){
+  return `<div class="header"><div class="t" id="home">🚻 스마트 화장실 운영 콘솔</div>
+    <div class="r"><span class="muted" style="color:#dfe6f5">${esc((state.profile.full_name?state.profile.full_name+' · ':'')+(ROLE_LABEL[state.role]||'권한 없음'))}</span>
     <button class="btn ghost sm" id="logout">로그아웃</button></div></div><div class="wrap" id="body"></div>`;
 }
-function mountShell(){
-  app.innerHTML = shell();
-  document.getElementById('home').onclick = renderDashboard;
-  document.getElementById('logout').onclick = async ()=>{ await supabase.auth.signOut(); renderLogin(); };
-  const a = document.getElementById('add'); if(a) a.onclick = renderAdd;
-}
+function mountShell(){app.innerHTML=shell();document.getElementById('home').onclick=renderDashboard;
+  document.getElementById('logout').onclick=async()=>{await supabase.auth.signOut();renderLogin();};}
 
-// ── 대시보드 ────────────────────────────────────────────
+// ── 대시보드 ──
 async function renderDashboard(){
-  mountShell();
-  const body = document.getElementById('body'); body.innerHTML = '불러오는 중…';
-  let ov, locs;
-  try { [ov, locs] = await Promise.all([rpc('fleet_overview'), rpc('fleet_locations')]); }
-  catch(e){ body.innerHTML = `<div class="err">조회 실패: ${esc(e.message)}</div>`; return; }
+  mountShell(); state.filters=defFilters(); state.page=1;
+  const body=document.getElementById('body'); body.innerHTML='<div class="muted">불러오는 중…</div>';
+  try{ state.locs=await rpc('fleet_locations'); }catch(e){ body.innerHTML=`<div class="err">조회 실패: ${esc(e.message)}</div>`; return; }
+  body.innerHTML=`<div id="filters"></div><div id="stats"></div><div id="table"></div>`;
+  renderFilters(); renderAll();
+}
+function regions(){ return [...new Set(state.locs.map(l=>l.sido).filter(Boolean))].sort(); }
+function count(pred){ return state.locs.filter(pred).length; }
 
-  const kpi=(l,v,cls='')=>`<div class="kpi"><div class="l">${l}</div><div class="v ${cls}">${v}</div></div>`;
-  const kpis=`<div class="kpis">
-    ${kpi('화장실',ov.locations)}${kpi('온라인',ov.online,'ok')}${kpi('오프라인',ov.offline,ov.offline>0?'bad':'')}
-    ${kpi('재고부족',ov.low_stock,ov.low_stock>0?'warn':'')}${kpi('미처리 민원',ov.open_complaints,ov.open_complaints>0?'warn':'')}${kpi('오늘 안심이벤트',ov.safety_today)}</div>`;
-  const rows=(locs||[]).map(r=>`<tr>
-    <td><span class="dot ${r.online?'on':'off'}"></span>${r.online?'온라인':'오프라인'}</td>
-    <td>${esc(r.code)}</td><td>${esc(r.name)}</td>
-    <td class="muted">${esc(r.org_name)} · ${esc(r.sigungu||'')}</td>
-    <td>${r.pad_qty==null?'-':`<span class="pill ${r.pad_qty<=10?'low':'okp'}">${r.pad_qty}/${r.pad_cap}</span>`}</td>
-    <td>${r.open_complaints>0?`<span class="pill low">${r.open_complaints}건</span>`:'<span class="muted">0</span>'}</td>
-    <td class="muted">${r.temperature==null?'-':`${r.temperature}°C · ${r.humidity}% · PM${r.pm25}`}</td></tr>`).join('');
-  body.innerHTML = kpis + `<div class="bar"><h2>화장실 현황 (${(locs||[]).length})</h2>
-    <button class="btn sm" id="refresh">새로고침</button></div>
-    <div class="card"><table><thead><tr><th>상태</th><th>코드</th><th>이름</th><th>소속</th><th>재고</th><th>민원</th><th>환경</th></tr></thead>
-    <tbody>${rows||'<tr><td colspan="7" class="muted">표시할 화장실이 없습니다.</td></tr>'}</tbody></table></div>`;
-  document.getElementById('refresh').onclick = renderDashboard;
+function renderFilters(){
+  const f=state.filters;
+  const chip=(field,val,label,n)=>`<button class="chip ${f[field]===val?'on':''}" data-f="${field}" data-v="${val}">${label}${n!=null?` <span class="c">(${n})</span>`:''}</button>`;
+  document.getElementById('filters').innerHTML=`<div class="fcard">
+    <div class="fhead">화장실 검색</div>
+    <div class="frow"><div class="flabel">검색어</div>
+      <input id="q" placeholder="코드·이름·지역 검색" style="flex:1;min-width:220px" value="${esc(f.q)}"/></div>
+    <div class="frow"><div class="flabel">지역</div>
+      <select id="region" style="min-width:160px"><option value="">전체 지역</option>${regions().map(r=>`<option ${f.region===r?'selected':''}>${esc(r)}</option>`).join('')}</select></div>
+    <div class="frow"><div class="flabel">화장실 상태</div>
+      ${chip('status','','전체')}${chip('status','active','운영중',count(l=>l.status==='active'))}${chip('status','maintenance','점검중',count(l=>l.status==='maintenance'))}${chip('status','inactive','중지',count(l=>l.status==='inactive'))}</div>
+    <div class="frow"><div class="flabel">접속 상태</div>
+      ${chip('online','','전체')}${chip('online','on','온라인',count(l=>l.online))}${chip('online','off','오프라인',count(l=>!l.online))}</div>
+    <div class="frow"><div class="flabel">재고</div>
+      ${chip('stock','','전체')}${chip('stock','ok','정상',count(l=>l.pad_qty>10))}${chip('stock','low','부족',count(l=>l.pad_qty!=null&&l.pad_qty<=10))}</div>
+    <div class="frow"><div class="flabel">등록기간</div>
+      <button class="chip" data-p="1">오늘</button><button class="chip" data-p="7">7일</button><button class="chip" data-p="30">1개월</button><button class="chip" data-p="90">3개월</button><button class="chip" data-p="365">1년</button>
+      <input id="from" type="date" value="${f.from?f.from.toISOString().slice(0,10):''}"/> ~ <input id="to" type="date" value="${f.to?f.to.toISOString().slice(0,10):''}"/></div>
+    <div class="factions"><button class="btn line" id="reset">초기화</button><button class="btn" id="search">검색</button></div>
+  </div>`;
+  const fl=document.getElementById('filters');
+  fl.querySelectorAll('.chip[data-f]').forEach(b=>b.onclick=()=>{ f[b.dataset.f]=b.dataset.v; state.page=1; renderFilters(); renderAll(); });
+  fl.querySelectorAll('.chip[data-p]').forEach(b=>b.onclick=()=>{ const d=+b.dataset.p; f.to=new Date(); f.from=new Date(Date.now()-d*86400000); state.page=1; renderFilters(); renderAll(); });
+  document.getElementById('search').onclick=()=>{ f.q=document.getElementById('q').value.trim(); f.region=document.getElementById('region').value;
+    const fr=document.getElementById('from').value, to=document.getElementById('to').value; f.from=fr?new Date(fr):null; f.to=to?new Date(to+'T23:59:59'):null; state.page=1; renderFilters(); renderAll(); };
+  document.getElementById('reset').onclick=()=>{ state.filters=defFilters(); state.page=1; renderFilters(); renderAll(); };
+  document.getElementById('q').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('search').click(); });
 }
 
-// ── 화장실 추가 ─────────────────────────────────────────
-function orgOptions(){ return state.orgs.map(o=>`<option value="${esc(o.code)}">${esc(o.name)} (${esc(o.code)})</option>`).join(''); }
+function applyFilters(){
+  const f=state.filters;
+  return state.locs.filter(l=>{
+    if(f.q){ const s=(l.code+' '+l.name+' '+(l.org_name||'')+' '+(l.sigungu||'')+' '+(l.sido||'')).toLowerCase(); if(!s.includes(f.q.toLowerCase())) return false; }
+    if(f.region && l.sido!==f.region) return false;
+    if(f.status && l.status!==f.status) return false;
+    if(f.online==='on' && !l.online) return false;
+    if(f.online==='off' && l.online) return false;
+    if(f.stock==='ok' && !(l.pad_qty>10)) return false;
+    if(f.stock==='low' && !(l.pad_qty!=null&&l.pad_qty<=10)) return false;
+    if(f.from && new Date(l.created_at)<f.from) return false;
+    if(f.to && new Date(l.created_at)>f.to) return false;
+    return true;
+  });
+}
+function renderAll(){ renderStats(); renderTable(); }
 
+function renderStats(){
+  const L=state.locs;
+  const off=L.filter(l=>!l.online).length, low=L.filter(l=>l.pad_qty!=null&&l.pad_qty<=10).length;
+  const comp=L.reduce((a,l)=>a+(l.open_complaints||0),0);
+  const ok=L.filter(l=>l.online&&l.pad_qty>10&&(l.open_complaints||0)===0).length;
+  const card=(bg,fg,ic,v,l)=>`<div class="stat"><div class="ic" style="background:${bg};color:${fg}">${ic}</div><div><div class="v">${v}</div><div class="l">${l}</div></div></div>`;
+  document.getElementById('stats').innerHTML=`<div class="stats">
+    ${card('#FBE7E7','#D25151','📴',off,'오프라인')}
+    ${card('#FCEFD6','#B5730A','📦',low,'재고 부족')}
+    ${card('#E3EDFB','#2C6CD0','📝',comp,'미처리 민원')}
+    ${card('#E4F6EC','#22A667','✅',ok,'정상')}</div>`;
+}
+
+function renderTable(){
+  const all=applyFilters(); const total=all.length;
+  const ps=state.pageSize, pages=Math.max(1,Math.ceil(total/ps)); if(state.page>pages) state.page=pages;
+  const rows=all.slice((state.page-1)*ps, state.page*ps);
+  const body=rows.map((l,i)=>{
+    const st=STATUS[l.status]||{l:l.status,c:'b-x'};
+    return `<tr>
+      <td class="muted">${(state.page-1)*ps+i+1}</td>
+      <td><code>${esc(l.code)}</code></td>
+      <td><span class="lnk" data-id="${l.id}">${esc(l.name)}</span></td>
+      <td>${esc(l.org_name||'')}</td>
+      <td class="muted">${esc([l.sido,l.sigungu].filter(Boolean).join(' '))}</td>
+      <td><span class="badge ${st.c}">${st.l}</span></td>
+      <td><span class="dot ${l.online?'on':'off'}"></span>${l.online?'온라인':'오프라인'}</td>
+      <td>${l.pad_qty==null?'-':`<span class="badge ${l.pad_qty<=10?'b-a':'b-g'}">${l.pad_qty}/${l.pad_cap}</span>`}</td>
+      <td>${l.open_complaints>0?`<span class="badge b-r">${l.open_complaints}건</span>`:'<span class="muted">0</span>'}</td>
+      <td class="muted">${fmtDate(l.created_at)}</td>
+      <td>${l.device_code?`<code>${esc(l.device_code)}</code>`:'<span class="muted">미연결</span>'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('table').innerHTML=`<div class="tcard">
+    <div class="tbar"><h2>화장실 목록 <span class="muted" style="font-weight:400">총 ${total}건</span></h2>
+      <div class="tools">
+        <select id="ps">${[10,20,50,100].map(n=>`<option ${n===ps?'selected':''} value="${n}">${n}개씩 보기</option>`).join('')}</select>
+        <button class="btn sm line" id="refresh">새로고침</button>
+        ${canAdd()?'<button class="btn sm" id="add">＋ 화장실 등록</button>':''}
+      </div></div>
+    <div class="tscroll"><table>
+      <thead><tr><th>No</th><th>코드</th><th>이름</th><th>소속</th><th>지역</th><th>상태</th><th>접속</th><th>재고</th><th>민원</th><th>등록일</th><th>장비코드</th></tr></thead>
+      <tbody>${body||'<tr><td colspan="11" class="muted" style="text-align:center;padding:30px">조건에 맞는 화장실이 없습니다.</td></tr>'}</tbody>
+    </table></div>
+    <div class="pager"><span class="muted">${total===0?0:(state.page-1)*ps+1}–${Math.min(state.page*ps,total)} / ${total}</span>
+      <div class="pg"><button class="btn sm line" id="prev" ${state.page<=1?'disabled':''}>이전</button>
+      <span>${state.page} / ${pages}</span><button class="btn sm line" id="next" ${state.page>=pages?'disabled':''}>다음</button></div></div>
+  </div>`;
+  const t=document.getElementById('table');
+  t.querySelector('#ps').onchange=e=>{ state.pageSize=+e.target.value; state.page=1; renderTable(); };
+  t.querySelector('#refresh').onclick=renderDashboard;
+  const a=t.querySelector('#add'); if(a) a.onclick=renderAdd;
+  t.querySelector('#prev').onclick=()=>{ if(state.page>1){state.page--;renderTable();} };
+  t.querySelector('#next').onclick=()=>{ if(state.page<pages){state.page++;renderTable();} };
+  t.querySelectorAll('.lnk').forEach(el=>el.onclick=()=>detail(el.dataset.id));
+}
+
+function detail(id){
+  const l=state.locs.find(x=>String(x.id)===String(id)); if(!l) return;
+  const st=STATUS[l.status]||{l:l.status};
+  const row=(k,v)=>`<div class="k">${k}</div><div>${v}</div>`;
+  const bd=document.createElement('div'); bd.className='backdrop';
+  bd.innerHTML=`<div class="modal"><div style="display:flex;justify-content:space-between;align-items:center">
+    <h2 style="margin:0">${esc(l.name)}</h2><button class="btn sm line" id="x">닫기</button></div>
+    <div class="kv">
+      ${row('코드',`<code>${esc(l.code)}</code>`)}
+      ${row('소속',esc(l.org_name||'-'))}
+      ${row('지역',esc([l.sido,l.sigungu].filter(Boolean).join(' ')||'-'))}
+      ${row('상태',st.l)}
+      ${row('접속',l.online?'온라인':`오프라인 (마지막 ${fmtDt(l.last_seen_at)})`)}
+      ${row('장비코드',l.device_code?`<code>${esc(l.device_code)}</code>`:'미연결')}
+      ${row('생리용품 재고',l.pad_qty==null?'-':`${l.pad_qty} / ${l.pad_cap}`)}
+      ${row('미처리 민원',(l.open_complaints||0)+'건')}
+      ${row('환경(더미)',l.temperature==null?'-':`${l.temperature}°C · ${l.humidity}% · PM${l.pm25} (${fmtDt(l.env_at)})`)}
+      ${row('등록일',fmtDate(l.created_at))}
+    </div></div>`;
+  bd.onclick=e=>{ if(e.target===bd||e.target.id==='x') bd.remove(); };
+  document.body.appendChild(bd);
+}
+
+// ── 화장실 추가 ──
+function orgOptions(){return state.orgs.map(o=>`<option value="${esc(o.code)}">${esc(o.name)} (${esc(o.code)})</option>`).join('');}
 function renderAdd(){
   mountShell();
-  const body = document.getElementById('body');
-  body.innerHTML = `<div class="bar"><h2>화장실 추가</h2></div>
-    <div class="tabs"><div class="tab active" data-t="one">단일 추가</div><div class="tab" data-t="many">여러 개 추가 (50~100)</div></div>
-    <div id="pane"></div>`;
-  body.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
-    body.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
-    t.dataset.t==='one'?paneOne():paneMany();
-  });
-  paneOne();
-
-  function paneOne(){
-    document.getElementById('pane').innerHTML = `<div class="card pad" style="max-width:640px">
-      <label class="f">지자체</label><select id="org">${orgOptions()}</select>
+  const body=document.getElementById('body');
+  body.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h2 style="margin:0">화장실 등록</h2><button class="btn line sm" id="back">← 목록</button></div>
+    <div class="tabs"><div class="tab active" data-t="one">단일 등록</div><div class="tab" data-t="many">여러 개 (50~100)</div></div><div id="pane"></div>`;
+  document.getElementById('back').onclick=renderDashboard;
+  body.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{body.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');t.dataset.t==='one'?one():many();});
+  one();
+  function one(){
+    document.getElementById('pane').innerHTML=`<div class="card pad" style="max-width:640px">
+      <label class="f">지자체</label><select id="org">${orgOptions()}</select><div style="height:10px"></div>
       <div class="grid2">
-        <div><label class="f">코드 (고유)</label><input id="code" placeholder="GG-SUWON-003" /></div>
-        <div><label class="f">이름</label><input id="name" placeholder="광교호수공원 공중화장실" /></div>
-        <div><label class="f">시·도</label><input id="sido" placeholder="경기도" /></div>
-        <div><label class="f">시·군·구</label><input id="sigungu" placeholder="수원시" /></div>
-        <div><label class="f">초기 재고</label><input id="stock" type="number" value="20" /></div>
-        <div><label class="f">단말 라벨(선택)</label><input id="dlabel" placeholder="입구 키오스크" /></div>
-      </div>
-      <div id="msg"></div>
-      <button class="btn" id="save">추가하고 페어링 코드 받기</button></div>`;
-    document.getElementById('save').onclick = async ()=>{
-      const msg=document.getElementById('msg'); msg.innerHTML='';
-      const p_code=document.getElementById('code').value.trim(), p_name=document.getElementById('name').value.trim();
-      if(!p_code||!p_name){ msg.innerHTML='<div class="err">코드와 이름은 필수입니다.</div>'; return; }
-      try {
-        const res = await rpc('admin_create_location', {
-          p_org_code:document.getElementById('org').value, p_code, p_name,
-          p_sido:document.getElementById('sido').value.trim()||null,
-          p_sigungu:document.getElementById('sigungu').value.trim()||null,
-          p_device_label:document.getElementById('dlabel').value.trim()||null,
-          p_stock:parseInt(document.getElementById('stock').value||'0',10)
-        });
-        msg.innerHTML=`<div class="ok">추가 완료! 페어링 코드: <code>${esc(res.pairing_code)}</code> — 태블릿에 입력하세요.</div>`;
-        document.getElementById('code').value=''; document.getElementById('name').value='';
-      } catch(e){ msg.innerHTML=`<div class="err">실패: ${esc(e.message)}</div>`; }
+        <div><label class="f">코드(고유)</label><input id="code" placeholder="GG-SUWON-003"/></div>
+        <div><label class="f">이름</label><input id="name" placeholder="광교호수공원 공중화장실"/></div>
+        <div><label class="f">시·도</label><input id="sido" placeholder="경기도"/></div>
+        <div><label class="f">시·군·구</label><input id="sigungu" placeholder="수원시"/></div>
+        <div><label class="f">초기 재고</label><input id="stock" type="number" value="20"/></div>
+        <div><label class="f">단말 라벨(선택)</label><input id="dlabel" placeholder="입구 키오스크"/></div>
+      </div><div id="msg" style="margin:8px 0"></div>
+      <button class="btn" id="save">등록하고 페어링 코드 받기</button></div>`;
+    document.getElementById('save').onclick=async()=>{
+      const msg=document.getElementById('msg');
+      const p_code=code.value.trim(),p_name=name.value.trim();
+      if(!p_code||!p_name){msg.innerHTML='<div class="err">코드와 이름은 필수입니다.</div>';return;}
+      try{const res=await rpc('admin_create_location',{p_org_code:org.value,p_code,p_name,p_sido:sido.value.trim()||null,p_sigungu:sigungu.value.trim()||null,p_device_label:dlabel.value.trim()||null,p_stock:parseInt(stock.value||'0',10)});
+        msg.innerHTML=`<div class="ok">등록 완료! 페어링 코드: <code>${esc(res.pairing_code)}</code></div>`; code.value='';name.value='';
+      }catch(e){msg.innerHTML=`<div class="err">실패: ${esc(e.message)}</div>`;}
     };
   }
-
-  function paneMany(){
-    document.getElementById('pane').innerHTML = `<div class="card pad">
-      <label class="f">지자체 (전체 행에 적용)</label><select id="org" style="max-width:400px">${orgOptions()}</select>
-      <label class="f">시·도 (선택, 전체 적용)</label><input id="sido" style="max-width:400px" placeholder="경기도" />
-      <label class="f">붙여넣기 — 한 줄에 하나: <code>코드,이름,시군구,재고</code></label>
+  function many(){
+    document.getElementById('pane').innerHTML=`<div class="card pad">
+      <label class="f">지자체(전체 적용)</label><select id="org" style="max-width:400px">${orgOptions()}</select>
+      <label class="f" style="margin-top:10px">시·도(선택, 전체 적용)</label><input id="sido" style="max-width:400px" placeholder="경기도"/>
+      <label class="f" style="margin-top:10px">붙여넣기 — 한 줄에: <code>코드,이름,시군구,재고</code></label>
       <textarea id="csv" placeholder="GG-SUWON-010,매산로 공중화장실,수원시,20
 GG-SUWON-011,행궁동 공중화장실,수원시,15"></textarea>
-      <div id="msg"></div>
-      <button class="btn" id="run">일괄 추가</button>
-      <div id="result" style="margin-top:16px"></div></div>`;
-    document.getElementById('run').onclick = async ()=>{
-      const msg=document.getElementById('msg'); msg.innerHTML='';
-      const org=document.getElementById('org').value; const sido=document.getElementById('sido').value.trim()||null;
-      const lines=document.getElementById('csv').value.split('\n').map(l=>l.trim()).filter(Boolean);
-      const rows=[]; for(const line of lines){ const c=line.split(',').map(x=>x.trim()); if(!c[0]) continue;
-        rows.push({ org_code:org, code:c[0], name:c[1]||c[0], sigungu:c[2]||'', sido, stock:c[3]||'0' }); }
-      if(!rows.length){ msg.innerHTML='<div class="err">추가할 행이 없습니다.</div>'; return; }
-      if(rows.length>500){ msg.innerHTML='<div class="err">한 번에 500개 이하로 나눠 주세요.</div>'; return; }
+      <div id="msg" style="margin:8px 0"></div><button class="btn" id="run">일괄 등록</button>
+      <div id="result" style="margin-top:14px"></div></div>`;
+    document.getElementById('run').onclick=async()=>{
+      const msg=document.getElementById('msg'); const org=document.getElementById('org').value; const sido=document.getElementById('sido').value.trim()||null;
+      const rows=document.getElementById('csv').value.split('\n').map(l=>l.trim()).filter(Boolean).map(line=>{const c=line.split(',').map(x=>x.trim());return{org_code:org,code:c[0],name:c[1]||c[0],sigungu:c[2]||'',sido,stock:c[3]||'0'};}).filter(r=>r.code);
+      if(!rows.length){msg.innerHTML='<div class="err">추가할 행이 없습니다.</div>';return;}
+      if(rows.length>500){msg.innerHTML='<div class="err">한 번에 500개 이하로 나눠 주세요.</div>';return;}
       msg.innerHTML=`<div class="muted">${rows.length}개 처리 중…</div>`;
-      try {
-        const res = await rpc('admin_bulk_create_locations', { p_rows: rows });
-        const okN=res.filter(r=>r.status==='ok').length, dup=res.filter(r=>r.status==='duplicate').length, er=res.filter(r=>r.status==='error').length;
-        msg.innerHTML=`<div class="ok">완료: 성공 ${okN} · 중복 ${dup} · 오류 ${er}</div>`;
-        const body=res.map(r=>`<tr><td>${esc(r.code)}</td><td>${r.pairing_code?`<code>${esc(r.pairing_code)}</code>`:'-'}</td>
-          <td>${r.status==='ok'?'<span class="pill okp">성공</span>':r.status==='duplicate'?'<span class="pill low">중복</span>':`<span class="pill bad">오류</span> <span class="muted">${esc(r.message||'')}</span>`}</td></tr>`).join('');
-        document.getElementById('result').innerHTML=`<div class="bar"><h2>결과</h2><button class="btn sm" id="dl">페어링 코드 CSV 다운로드</button></div>
-          <div class="card"><table><thead><tr><th>코드</th><th>페어링 코드</th><th>상태</th></tr></thead><tbody>${body}</tbody></table></div>`;
-        document.getElementById('dl').onclick=()=>{ const csv='code,pairing_code,status\n'+res.map(r=>`${r.code},${r.pairing_code||''},${r.status}`).join('\n'); download('pairing-codes.csv', csv); };
-      } catch(e){ msg.innerHTML=`<div class="err">실패: ${esc(e.message)}</div>`; }
+      try{const res=await rpc('admin_bulk_create_locations',{p_rows:rows});
+        const ok=res.filter(r=>r.status==='ok').length,dup=res.filter(r=>r.status==='duplicate').length,er=res.filter(r=>r.status==='error').length;
+        msg.innerHTML=`<div class="ok">완료: 성공 ${ok} · 중복 ${dup} · 오류 ${er}</div>`;
+        const b=res.map(r=>`<tr><td>${esc(r.code)}</td><td>${r.pairing_code?`<code>${esc(r.pairing_code)}</code>`:'-'}</td><td>${r.status==='ok'?'<span class="badge b-g">성공</span>':r.status==='duplicate'?'<span class="badge b-a">중복</span>':`<span class="badge b-r">오류</span> <span class="muted">${esc(r.message||'')}</span>`}</td></tr>`).join('');
+        document.getElementById('result').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0"><b>결과</b><button class="btn sm line" id="dl">페어링 코드 CSV</button></div><div class="tcard tscroll"><table><thead><tr><th>코드</th><th>페어링코드</th><th>상태</th></tr></thead><tbody>${b}</tbody></table></div>`;
+        document.getElementById('dl').onclick=()=>download('pairing-codes.csv','code,pairing_code,status\n'+res.map(r=>`${r.code},${r.pairing_code||''},${r.status}`).join('\n'));
+      }catch(e){msg.innerHTML=`<div class="err">실패: ${esc(e.message)}</div>`;}
     };
   }
 }
 
-// ── 부팅 ────────────────────────────────────────────────
+// ── 부팅 ──
 async function boot(){
-  const { data:{ user } } = await supabase.auth.getUser();
-  const { data: prof } = await supabase.from('profiles').select('full_name, role, org_id').eq('id', user.id).maybeSingle();
-  state.profile = prof || {}; state.role = prof?.role || null;
-  const { data: orgs } = await supabase.from('organizations').select('code, name').order('name');
-  state.orgs = orgs || [];
-  renderDashboard();
+  const{data:{user}}=await supabase.auth.getUser();
+  const{data:prof}=await supabase.from('profiles').select('full_name, role, org_id').eq('id',user.id).maybeSingle();
+  state.profile=prof||{}; state.role=prof?.role||null;
+  const{data:orgs}=await supabase.from('organizations').select('code, name').order('name');
+  state.orgs=orgs||[]; renderDashboard();
 }
-
-const { data:{ session } } = await supabase.auth.getSession();
-if (session) boot(); else renderLogin();
+const{data:{session}}=await supabase.auth.getSession();
+if(session) boot(); else renderLogin();
 </script>
 </body>
 </html>
