@@ -25,7 +25,7 @@ export function PulseDot({ color = colors.pulse, size = 9 }) {
 }
 
 // 상단 브랜드 헤더 (모든 화면 공통)
-export function AppHeader({ time, date, onBrandPress, onAdminPress }) {
+export function AppHeader({ title, time, date, onBrandPress, onAdminPress }) {
   const insets = useSafeAreaInsets();
   const headerStyle = [
     s.header,
@@ -42,7 +42,7 @@ export function AppHeader({ time, date, onBrandPress, onAdminPress }) {
         <View style={s.brandIcon}><Icon name="pin" size={26} color="#fff" /></View>
         <View>
           <Text style={s.brandKicker}>경기도 스마트 공중화장실</Text>
-          <Text style={s.brandTitle}>중앙근린공원 공중화장실</Text>
+          <Text style={s.brandTitle}>{title || '공중화장실'}</Text>
         </View>
       </TouchableOpacity>
       <View style={s.headerRight}>

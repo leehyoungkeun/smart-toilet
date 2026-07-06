@@ -60,6 +60,7 @@ function Gate() {
 }
 
 function Kiosk() {
+  const { locationName } = useKiosk();
   const [screen, setScreen] = useState('home');
   const [now, setNow] = useState(new Date());
 
@@ -77,7 +78,7 @@ function Kiosk() {
   return (
     <View style={s.root}>
       <StatusBar hidden />
-      <AppHeader time={time} date={date} onBrandPress={home} onAdminPress={() => setScreen('admin')} />
+      <AppHeader title={locationName} time={time} date={date} onBrandPress={home} onAdminPress={() => setScreen('admin')} />
       <View style={{ flex: 1 }}>
         {screen === 'home' && <HomeScreen go={go} />}
         {screen === 'sanitary' && <SanitaryScreen onBack={home} onHome={home} />}

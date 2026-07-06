@@ -1,22 +1,22 @@
 // 키오스크 부팅 상태 전역 제공
 // status: 'loading' | 'pairing' | 'ready' | 'error'
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ensureSession, fetchLocationId, claimDevice, heartbeat } from '../lib/kiosk';
+import { ensureSession, fetchLocation, claimDevice, heartbeat } from '../lib/kiosk';
 
 const KioskContext = createContext(null);
 
 export function KioskProvider({ children }) {
-  const [state, setState] = useState({ status: 'loading', locationId: null, error: null });
+  const [state, setState] = useState({ status: 'loading', location: null, error: null });
   const hb = useRef(null);
 
   const boot = useCallback(async () => {
     setState((s) => ({ ...s, status: 'loading', error: null }));
     try {
       await ensureSession();
-      const locationId = await fetchLocationId();
-      setState({ status: locationId ? 'ready' : 'pairing', locationId, error: null });
+      const location = await fetchLocation();
+      setState({ status: location ? 'ready' : 'pairing', location, error: null });
     } catch (e) {
-      setState({ status: 'error', locationId: null, error: e?.message ?? String(e) });
+      setState({ status: 'error', location: null, error: e?.message ?? String(e) });
     }
   }, []);
 
@@ -32,12 +32,21 @@ export function KioskProvider({ children }) {
 
   const pair = useCallback(async (code) => {
     const res = await claimDevice(code);
-    setState({ status: 'ready', locationId: res.location_id, error: null });
+    const location = await fetchLocation();
+    setState({ status: 'ready', location, error: null });
     return res;
   }, []);
 
   return (
-    <KioskContext.Provider value={{ ...state, retry: boot, pair }}>
+    <KioskContext.Provider
+      value={{
+        ...state,
+        locationId: state.location?.id ?? null,
+        locationName: state.location?.name ?? null,
+        retry: boot,
+        pair,
+      }}
+    >
       {children}
     </KioskContext.Provider>
   );
