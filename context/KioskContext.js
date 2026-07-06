@@ -1,12 +1,13 @@
 // 키오스크 부팅 상태 전역 제공
 // status: 'loading' | 'pairing' | 'ready' | 'error'
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { ensureSession, fetchLocationId, claimDevice } from '../lib/kiosk';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { ensureSession, fetchLocationId, claimDevice, heartbeat } from '../lib/kiosk';
 
 const KioskContext = createContext(null);
 
 export function KioskProvider({ children }) {
   const [state, setState] = useState({ status: 'loading', locationId: null, error: null });
+  const hb = useRef(null);
 
   const boot = useCallback(async () => {
     setState((s) => ({ ...s, status: 'loading', error: null }));
@@ -20,6 +21,14 @@ export function KioskProvider({ children }) {
   }, []);
 
   useEffect(() => { boot(); }, [boot]);
+
+  // 페어링 완료(ready) 상태에서 60초마다 하트비트 → 콘솔 온라인 표시
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    heartbeat().catch(() => {});
+    hb.current = setInterval(() => heartbeat().catch(() => {}), 60000);
+    return () => clearInterval(hb.current);
+  }, [state.status]);
 
   const pair = useCallback(async (code) => {
     const res = await claimDevice(code);
