@@ -243,7 +243,7 @@ function detail(id){
       ${row('지역',esc([l.sido,l.sigungu].filter(Boolean).join(' ')||'-'))}
       ${row('상태',st.l)}
       ${row('접속',l.online?'온라인':`오프라인 (마지막 ${fmtDt(l.last_seen_at)})`)}
-      ${row('장비코드',l.device_code?`<code>${esc(l.device_code)}</code>`:'미연결')}
+      ${row('장비코드(고유)',l.device_code?`<code>${esc(l.device_code)}</code>${l.paired?'':' <span class="muted">· 미등록</span>'}`:'-')}
       ${row('생리용품 재고',l.pad_qty==null?'-':`${l.pad_qty} / ${l.pad_cap}`)}
       ${row('미처리 민원',(l.open_complaints||0)+'건')}
       ${row('환경(더미)',l.temperature==null?'-':`${l.temperature}°C · ${l.humidity}% · PM${l.pm25} (${fmtDt(l.env_at)})`)}
@@ -253,7 +253,10 @@ function detail(id){
       ${l.deleted
         ? `<button class="btn" data-restore>복원</button>`
         : `<button class="btn" data-edit>수정</button><button class="btn line" style="color:#B5730A;border-color:#F0D9AF" data-soft>삭제(보관)</button>`}
-      <button class="btn line" style="color:#D25151;border-color:#F3C2C2" data-hard>완전 삭제</button></div>`:''}`);
+      <button class="btn line" style="color:#D25151;border-color:#F3C2C2" data-hard>완전 삭제</button></div>
+    ${!l.deleted?`<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      ${l.paired?'<button class="btn line" data-unpair>재페어링 초기화</button>':''}
+      <button class="btn line" data-reissue>코드 재발급</button></div>`:''}`:''}`);
   bd.querySelector('[data-x]').onclick=()=>bd.remove();
   const act=async(fn,body,after)=>{ try{ await rpc(fn,body); bd.remove(); renderDashboard(); }catch(e){ alert((after||'실패')+': '+e.message); } };
   if(admin){
@@ -261,6 +264,9 @@ function detail(id){
     const soft=bd.querySelector('[data-soft]'); if(soft) soft.onclick=()=>{ if(confirm(`'${l.name}'을(를) 삭제(보관) 처리할까요?\n목록에서 숨겨지고 '삭제됨' 필터에서 복원할 수 있습니다.`)) act('admin_soft_delete_location',{p_id:l.id},'삭제 실패'); };
     const restore=bd.querySelector('[data-restore]'); if(restore) restore.onclick=()=>act('admin_restore_location',{p_id:l.id},'복원 실패');
     const hard=bd.querySelector('[data-hard]'); if(hard) hard.onclick=()=>{ if(confirm(`[완전 삭제] '${l.name}'\n단말·재고·민원·지급/만족도 기록이 영구 삭제됩니다. 되돌릴 수 없습니다.\n\n계속할까요?`)) act('admin_delete_location',{p_id:l.id},'완전삭제 실패'); };
+    const unpair=bd.querySelector('[data-unpair]'); if(unpair) unpair.onclick=()=>{ if(confirm(`'${l.name}' 단말 연결을 해제할까요?\n같은 코드(${l.device_code||''})로 새 태블릿에서 다시 등록할 수 있습니다.`)) act('admin_unpair_device',{p_location_id:l.id},'초기화 실패'); };
+    const reissue=bd.querySelector('[data-reissue]'); if(reissue) reissue.onclick=async()=>{ if(!confirm(`'${l.name}' 페어링 코드를 새로 발급할까요?\n기존 코드(${l.device_code||''})는 더 이상 쓸 수 없습니다.`)) return;
+      try{ const r=await rpc('admin_reissue_pairing_code',{p_location_id:l.id}); bd.remove(); alert('새 코드: '+((r.codes||[]).join(', ')||'-')); renderDashboard(); }catch(e){ alert('재발급 실패: '+e.message); } };
   }
 }
 
