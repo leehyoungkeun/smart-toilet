@@ -9,24 +9,25 @@
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:#EAF0F9; color:#16223C; }
   .header { background:linear-gradient(90deg,#15408F,#2C6CD0); color:#fff; padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
   .header .t { font-size:20px; font-weight:700; }
-  .header .r { display:flex; align-items:center; gap:14px; font-size:14px; }
+  .header .r { display:flex; align-items:center; gap:12px; font-size:14px; }
   .btn { border:0; border-radius:10px; padding:9px 16px; font-weight:600; font-size:14px; cursor:pointer; background:#2C6CD0; color:#fff; }
   .btn.ghost { background:rgba(255,255,255,.15); color:#fff; }
+  .btn.sm { padding:6px 12px; font-size:13px; }
   .wrap { max-width:1200px; margin:0 auto; padding:24px; }
-  /* login */
   .login { max-width:400px; margin:8vh auto; background:#fff; border:1px solid #ECF1F9; border-radius:18px; padding:32px; }
   .login h1 { font-size:22px; margin:0 0 4px; }
   .login p { color:#6B7A95; font-size:14px; margin:0 0 20px; }
-  .login input { width:100%; height:48px; border:1px solid #E2E9F4; border-radius:12px; padding:0 14px; font-size:15px; margin-bottom:12px; }
+  input,select,textarea { width:100%; border:1px solid #E2E9F4; border-radius:12px; padding:12px 14px; font-size:15px; margin-bottom:12px; font-family:inherit; }
+  textarea { min-height:180px; resize:vertical; white-space:pre; }
   .err { color:#E0322F; font-size:14px; margin:6px 0; }
-  /* kpi */
+  .ok { color:#138A55; font-size:14px; margin:6px 0; }
   .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px; }
   .kpi { background:#fff; border:1px solid #ECF1F9; border-radius:14px; padding:16px; }
   .kpi .l { font-size:13px; color:#6B7A95; }
   .kpi .v { font-size:26px; font-weight:700; margin-top:4px; }
   .kpi .v.warn { color:#B5730A; } .kpi .v.bad { color:#E0322F; } .kpi .v.ok { color:#1FA463; }
-  /* table */
   .card { background:#fff; border:1px solid #ECF1F9; border-radius:16px; overflow:hidden; }
+  .pad { padding:22px; }
   table { width:100%; border-collapse:collapse; font-size:14px; }
   th,td { text-align:left; padding:12px 14px; border-bottom:1px solid #F0F3F9; white-space:nowrap; }
   th { background:#F7F9FD; color:#6B7A95; font-weight:600; font-size:12px; }
@@ -34,9 +35,16 @@
   .on { background:#1FA463; } .off { background:#C7CFDB; }
   .pill { border-radius:999px; padding:3px 9px; font-size:12px; font-weight:700; }
   .pill.low { background:#FCEFD6; color:#B5730A; } .pill.okp { background:#E4F6EC; color:#138A55; }
+  .pill.bad { background:#FBE3E3; color:#C42B28; }
   .muted { color:#8492AB; }
   .bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .bar h2 { font-size:18px; margin:0; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tab { padding:8px 16px; border-radius:10px; background:#fff; border:1px solid #E2E9F4; cursor:pointer; font-weight:600; font-size:14px; }
+  .tab.active { background:#2C6CD0; color:#fff; border-color:#2C6CD0; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  label.f { font-size:13px; color:#6B7A95; display:block; margin-bottom:4px; }
+  code { background:#F3F7FD; padding:2px 6px; border-radius:6px; font-size:13px; }
 </style>
 </head>
 <body>
@@ -48,12 +56,16 @@ const SUPABASE_URL = 'https://jrcvrlyvkdoxtjlhmapm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_JD6Mcz3_Hk2N5jX0zauvLg_pGihCjYn';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const app = document.getElementById('app');
+const state = { role: null, orgs: [] };
 
 const ROLE_LABEL = { platform_admin:'플랫폼 관리자(전체)', org_admin:'지자체 관리자', operator:'운영자' };
+const canAdd = () => state.role === 'platform_admin' || state.role === 'org_admin';
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+async function rpc(fn, body){ const { data, error } = await supabase.rpc(fn, body||{}); if(error) throw error; return data; }
+function download(name, text){ const b=new Blob([text],{type:'text/csv;charset=utf-8'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
 
-function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-
-async function renderLogin(msg){
+// ── 로그인 ──────────────────────────────────────────────
+function renderLogin(msg){
   app.innerHTML = `
     <div class="login">
       <h1>운영 콘솔 로그인</h1>
@@ -61,77 +73,147 @@ async function renderLogin(msg){
       <input id="email" type="email" placeholder="이메일" autocomplete="username" />
       <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password" />
       ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
-      <button class="btn" id="go" style="width:100%;height:48px;">로그인</button>
+      <button class="btn" id="go" style="width:100%;padding:14px;">로그인</button>
     </div>`;
   document.getElementById('go').onclick = async () => {
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('pw').value;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return renderLogin('로그인 실패: 이메일/비밀번호를 확인하세요.');
-    renderDashboard();
+    boot();
   };
 }
 
+function shell(inner){
+  return `<div class="header"><div class="t" id="home" style="cursor:pointer">스마트 화장실 운영 콘솔</div>
+    <div class="r"><span class="muted">${esc((state.profile?.full_name?state.profile.full_name+' · ':'')+(ROLE_LABEL[state.role]||'권한 없음'))}</span>
+    ${canAdd()?'<button class="btn ghost sm" id="add">＋ 화장실 추가</button>':''}
+    <button class="btn ghost sm" id="logout">로그아웃</button></div></div><div class="wrap" id="body"></div>`;
+}
+function mountShell(){
+  app.innerHTML = shell();
+  document.getElementById('home').onclick = renderDashboard;
+  document.getElementById('logout').onclick = async ()=>{ await supabase.auth.signOut(); renderLogin(); };
+  const a = document.getElementById('add'); if(a) a.onclick = renderAdd;
+}
+
+// ── 대시보드 ────────────────────────────────────────────
 async function renderDashboard(){
-  app.innerHTML = `<div class="header"><div class="t">스마트 화장실 운영 콘솔</div>
-    <div class="r"><span id="who" class="muted"></span>
-    <button class="btn ghost" id="refresh">새로고침</button>
-    <button class="btn ghost" id="logout">로그아웃</button></div></div>
-    <div class="wrap"><div id="body">불러오는 중…</div></div>`;
+  mountShell();
+  const body = document.getElementById('body'); body.innerHTML = '불러오는 중…';
+  let ov, locs;
+  try { [ov, locs] = await Promise.all([rpc('fleet_overview'), rpc('fleet_locations')]); }
+  catch(e){ body.innerHTML = `<div class="err">조회 실패: ${esc(e.message)}</div>`; return; }
 
-  document.getElementById('logout').onclick = async () => { await supabase.auth.signOut(); renderLogin(); };
-  document.getElementById('refresh').onclick = load;
-
-  // 역할 표시
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle();
-  document.getElementById('who').textContent =
-    (prof?.full_name ? prof.full_name+' · ' : '') + (ROLE_LABEL[prof?.role] || '권한 없음');
-
-  load();
+  const kpi=(l,v,cls='')=>`<div class="kpi"><div class="l">${l}</div><div class="v ${cls}">${v}</div></div>`;
+  const kpis=`<div class="kpis">
+    ${kpi('화장실',ov.locations)}${kpi('온라인',ov.online,'ok')}${kpi('오프라인',ov.offline,ov.offline>0?'bad':'')}
+    ${kpi('재고부족',ov.low_stock,ov.low_stock>0?'warn':'')}${kpi('미처리 민원',ov.open_complaints,ov.open_complaints>0?'warn':'')}${kpi('오늘 안심이벤트',ov.safety_today)}</div>`;
+  const rows=(locs||[]).map(r=>`<tr>
+    <td><span class="dot ${r.online?'on':'off'}"></span>${r.online?'온라인':'오프라인'}</td>
+    <td>${esc(r.code)}</td><td>${esc(r.name)}</td>
+    <td class="muted">${esc(r.org_name)} · ${esc(r.sigungu||'')}</td>
+    <td>${r.pad_qty==null?'-':`<span class="pill ${r.pad_qty<=10?'low':'okp'}">${r.pad_qty}/${r.pad_cap}</span>`}</td>
+    <td>${r.open_complaints>0?`<span class="pill low">${r.open_complaints}건</span>`:'<span class="muted">0</span>'}</td>
+    <td class="muted">${r.temperature==null?'-':`${r.temperature}°C · ${r.humidity}% · PM${r.pm25}`}</td></tr>`).join('');
+  body.innerHTML = kpis + `<div class="bar"><h2>화장실 현황 (${(locs||[]).length})</h2>
+    <button class="btn sm" id="refresh">새로고침</button></div>
+    <div class="card"><table><thead><tr><th>상태</th><th>코드</th><th>이름</th><th>소속</th><th>재고</th><th>민원</th><th>환경</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="7" class="muted">표시할 화장실이 없습니다.</td></tr>'}</tbody></table></div>`;
+  document.getElementById('refresh').onclick = renderDashboard;
 }
 
-async function load(){
+// ── 화장실 추가 ─────────────────────────────────────────
+function orgOptions(){ return state.orgs.map(o=>`<option value="${esc(o.code)}">${esc(o.name)} (${esc(o.code)})</option>`).join(''); }
+
+function renderAdd(){
+  mountShell();
   const body = document.getElementById('body');
-  body.innerHTML = '불러오는 중…';
-  const [{ data: ov, error: e1 }, { data: locs, error: e2 }] = await Promise.all([
-    supabase.rpc('fleet_overview'),
-    supabase.rpc('fleet_locations'),
-  ]);
-  if (e1 || e2){ body.innerHTML = `<div class="err">데이터 조회 실패: ${esc((e1||e2).message)}</div>`; return; }
+  body.innerHTML = `<div class="bar"><h2>화장실 추가</h2></div>
+    <div class="tabs"><div class="tab active" data-t="one">단일 추가</div><div class="tab" data-t="many">여러 개 추가 (50~100)</div></div>
+    <div id="pane"></div>`;
+  body.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    body.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+    t.dataset.t==='one'?paneOne():paneMany();
+  });
+  paneOne();
 
-  const kpi = (l,v,cls='')=>`<div class="kpi"><div class="l">${l}</div><div class="v ${cls}">${v}</div></div>`;
-  const kpis = `<div class="kpis">
-    ${kpi('화장실', ov.locations)}
-    ${kpi('온라인', ov.online, 'ok')}
-    ${kpi('오프라인', ov.offline, ov.offline>0?'bad':'')}
-    ${kpi('재고부족', ov.low_stock, ov.low_stock>0?'warn':'')}
-    ${kpi('미처리 민원', ov.open_complaints, ov.open_complaints>0?'warn':'')}
-    ${kpi('오늘 안심이벤트', ov.safety_today)}
-  </div>`;
+  function paneOne(){
+    document.getElementById('pane').innerHTML = `<div class="card pad" style="max-width:640px">
+      <label class="f">지자체</label><select id="org">${orgOptions()}</select>
+      <div class="grid2">
+        <div><label class="f">코드 (고유)</label><input id="code" placeholder="GG-SUWON-003" /></div>
+        <div><label class="f">이름</label><input id="name" placeholder="광교호수공원 공중화장실" /></div>
+        <div><label class="f">시·도</label><input id="sido" placeholder="경기도" /></div>
+        <div><label class="f">시·군·구</label><input id="sigungu" placeholder="수원시" /></div>
+        <div><label class="f">초기 재고</label><input id="stock" type="number" value="20" /></div>
+        <div><label class="f">단말 라벨(선택)</label><input id="dlabel" placeholder="입구 키오스크" /></div>
+      </div>
+      <div id="msg"></div>
+      <button class="btn" id="save">추가하고 페어링 코드 받기</button></div>`;
+    document.getElementById('save').onclick = async ()=>{
+      const msg=document.getElementById('msg'); msg.innerHTML='';
+      const p_code=document.getElementById('code').value.trim(), p_name=document.getElementById('name').value.trim();
+      if(!p_code||!p_name){ msg.innerHTML='<div class="err">코드와 이름은 필수입니다.</div>'; return; }
+      try {
+        const res = await rpc('admin_create_location', {
+          p_org_code:document.getElementById('org').value, p_code, p_name,
+          p_sido:document.getElementById('sido').value.trim()||null,
+          p_sigungu:document.getElementById('sigungu').value.trim()||null,
+          p_device_label:document.getElementById('dlabel').value.trim()||null,
+          p_stock:parseInt(document.getElementById('stock').value||'0',10)
+        });
+        msg.innerHTML=`<div class="ok">추가 완료! 페어링 코드: <code>${esc(res.pairing_code)}</code> — 태블릿에 입력하세요.</div>`;
+        document.getElementById('code').value=''; document.getElementById('name').value='';
+      } catch(e){ msg.innerHTML=`<div class="err">실패: ${esc(e.message)}</div>`; }
+    };
+  }
 
-  const rows = (locs||[]).map(r=>`
-    <tr>
-      <td><span class="dot ${r.online?'on':'off'}"></span>${r.online?'온라인':'오프라인'}</td>
-      <td>${esc(r.code)}</td>
-      <td>${esc(r.name)}</td>
-      <td class="muted">${esc(r.org_name)} · ${esc(r.sigungu||'')}</td>
-      <td>${r.pad_qty==null?'-':`<span class="pill ${r.pad_qty<=10?'low':'okp'}">${r.pad_qty}/${r.pad_cap}</span>`}</td>
-      <td>${r.open_complaints>0?`<span class="pill low">${r.open_complaints}건</span>`:'<span class="muted">0</span>'}</td>
-      <td class="muted">${r.temperature==null?'-':`${r.temperature}°C · ${r.humidity}% · PM${r.pm25}`}</td>
-    </tr>`).join('');
-
-  body.innerHTML = kpis + `
-    <div class="bar"><h2>화장실 현황 (${(locs||[]).length})</h2></div>
-    <div class="card"><table>
-      <thead><tr><th>상태</th><th>코드</th><th>이름</th><th>소속</th><th>재고</th><th>민원</th><th>환경</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="7" class="muted">표시할 화장실이 없습니다.</td></tr>'}</tbody>
-    </table></div>`;
+  function paneMany(){
+    document.getElementById('pane').innerHTML = `<div class="card pad">
+      <label class="f">지자체 (전체 행에 적용)</label><select id="org" style="max-width:400px">${orgOptions()}</select>
+      <label class="f">시·도 (선택, 전체 적용)</label><input id="sido" style="max-width:400px" placeholder="경기도" />
+      <label class="f">붙여넣기 — 한 줄에 하나: <code>코드,이름,시군구,재고</code></label>
+      <textarea id="csv" placeholder="GG-SUWON-010,매산로 공중화장실,수원시,20
+GG-SUWON-011,행궁동 공중화장실,수원시,15"></textarea>
+      <div id="msg"></div>
+      <button class="btn" id="run">일괄 추가</button>
+      <div id="result" style="margin-top:16px"></div></div>`;
+    document.getElementById('run').onclick = async ()=>{
+      const msg=document.getElementById('msg'); msg.innerHTML='';
+      const org=document.getElementById('org').value; const sido=document.getElementById('sido').value.trim()||null;
+      const lines=document.getElementById('csv').value.split('\n').map(l=>l.trim()).filter(Boolean);
+      const rows=[]; for(const line of lines){ const c=line.split(',').map(x=>x.trim()); if(!c[0]) continue;
+        rows.push({ org_code:org, code:c[0], name:c[1]||c[0], sigungu:c[2]||'', sido, stock:c[3]||'0' }); }
+      if(!rows.length){ msg.innerHTML='<div class="err">추가할 행이 없습니다.</div>'; return; }
+      if(rows.length>500){ msg.innerHTML='<div class="err">한 번에 500개 이하로 나눠 주세요.</div>'; return; }
+      msg.innerHTML=`<div class="muted">${rows.length}개 처리 중…</div>`;
+      try {
+        const res = await rpc('admin_bulk_create_locations', { p_rows: rows });
+        const okN=res.filter(r=>r.status==='ok').length, dup=res.filter(r=>r.status==='duplicate').length, er=res.filter(r=>r.status==='error').length;
+        msg.innerHTML=`<div class="ok">완료: 성공 ${okN} · 중복 ${dup} · 오류 ${er}</div>`;
+        const body=res.map(r=>`<tr><td>${esc(r.code)}</td><td>${r.pairing_code?`<code>${esc(r.pairing_code)}</code>`:'-'}</td>
+          <td>${r.status==='ok'?'<span class="pill okp">성공</span>':r.status==='duplicate'?'<span class="pill low">중복</span>':`<span class="pill bad">오류</span> <span class="muted">${esc(r.message||'')}</span>`}</td></tr>`).join('');
+        document.getElementById('result').innerHTML=`<div class="bar"><h2>결과</h2><button class="btn sm" id="dl">페어링 코드 CSV 다운로드</button></div>
+          <div class="card"><table><thead><tr><th>코드</th><th>페어링 코드</th><th>상태</th></tr></thead><tbody>${body}</tbody></table></div>`;
+        document.getElementById('dl').onclick=()=>{ const csv='code,pairing_code,status\n'+res.map(r=>`${r.code},${r.pairing_code||''},${r.status}`).join('\n'); download('pairing-codes.csv', csv); };
+      } catch(e){ msg.innerHTML=`<div class="err">실패: ${esc(e.message)}</div>`; }
+    };
+  }
 }
 
-// 세션 있으면 대시보드, 없으면 로그인
-const { data: { session } } = await supabase.auth.getSession();
-if (session) renderDashboard(); else renderLogin();
+// ── 부팅 ────────────────────────────────────────────────
+async function boot(){
+  const { data:{ user } } = await supabase.auth.getUser();
+  const { data: prof } = await supabase.from('profiles').select('full_name, role, org_id').eq('id', user.id).maybeSingle();
+  state.profile = prof || {}; state.role = prof?.role || null;
+  const { data: orgs } = await supabase.from('organizations').select('code, name').order('name');
+  state.orgs = orgs || [];
+  renderDashboard();
+}
+
+const { data:{ session } } = await supabase.auth.getSession();
+if (session) boot(); else renderLogin();
 </script>
 </body>
 </html>
