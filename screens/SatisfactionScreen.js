@@ -1,8 +1,9 @@
-// 만족도 조사 — 5단계 이모지 평가 → 제출 → 감사
+// 만족도 조사 — 5단계 이모지 평가 → submit_satisfaction RPC → 감사
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { BackHeader } from '../ui';
 import { colors, radius, shadow, FONT } from '../theme';
+import { submitSatisfaction } from '../lib/api';
 
 const FACES = [
   { id: 1, emoji: '😞', label: '매우 불만' },
@@ -14,7 +15,21 @@ const FACES = [
 
 export default function SatisfactionScreen({ onBack, onHome }) {
   const [rating, setRating] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (rating < 1 || busy) return;
+    setBusy(true); setErr('');
+    try {
+      await submitSatisfaction(rating, null);
+      setDone(true);
+    } catch (e) {
+      setErr('제출에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      setBusy(false);
+    }
+  };
 
   if (done) {
     return (
@@ -23,11 +38,6 @@ export default function SatisfactionScreen({ onBack, onHome }) {
           <Text style={{ fontSize: 86 }}>🙏</Text>
           <Text style={s.doneTitle}>소중한 의견 감사합니다</Text>
           <Text style={s.doneSub}>더 깨끗하고 안전한 화장실을 만들겠습니다</Text>
-          <View style={s.avgBox}>
-            <Text style={s.avgLabel}>이번 달 평균 만족도</Text>
-            <Text style={s.avgValue}>4.6</Text>
-            <Text style={s.avgUnit}>/ 5.0</Text>
-          </View>
           <TouchableOpacity activeOpacity={0.9} onPress={onHome} style={[s.cta, { paddingHorizontal: 44, marginTop: 26 }]}>
             <Text style={s.ctaText}>처음으로</Text>
           </TouchableOpacity>
@@ -53,10 +63,11 @@ export default function SatisfactionScreen({ onBack, onHome }) {
           })}
         </View>
       </View>
+      {!!err && <Text style={s.err}>{err}</Text>}
       <View style={{ marginTop: 22 }}>
         {rating > 0 ? (
-          <TouchableOpacity activeOpacity={0.9} onPress={() => setDone(true)} style={s.cta}>
-            <Text style={s.ctaText}>평가 제출</Text>
+          <TouchableOpacity activeOpacity={0.9} onPress={submit} style={[s.cta, busy && { opacity: 0.6 }]} disabled={busy}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.ctaText}>평가 제출</Text>}
           </TouchableOpacity>
         ) : (
           <View style={s.ctaDisabled}><Text style={s.ctaDisabledText}>평가를 선택해 주세요</Text></View>
@@ -74,6 +85,7 @@ const s = StyleSheet.create({
   faceSel: { borderWidth: 3, borderColor: colors.primary, backgroundColor: 'rgba(44,108,208,0.06)' },
   faceLabel: { fontSize: 19, fontWeight: '600', marginTop: 8, color: '#5C6B86', fontFamily: FONT },
 
+  err: { fontSize: 17, color: colors.danger, fontWeight: '600', marginTop: 16, textAlign: 'center', fontFamily: FONT },
   cta: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 18, alignItems: 'center', ...shadow(16, 0.28) },
   ctaText: { color: '#fff', fontSize: 24, fontWeight: '700', fontFamily: FONT },
   ctaDisabled: { backgroundColor: colors.disabledBg, borderRadius: radius.md, paddingVertical: 18, alignItems: 'center' },
@@ -81,8 +93,4 @@ const s = StyleSheet.create({
 
   doneTitle: { fontSize: 32, fontWeight: '700', color: colors.text, marginTop: 18, fontFamily: FONT },
   doneSub: { fontSize: 20, color: colors.muted, marginTop: 8, fontFamily: FONT },
-  avgBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.tintBgSoft, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 24, marginTop: 22 },
-  avgLabel: { fontSize: 19, color: '#5C6B86', fontWeight: '600', fontFamily: FONT },
-  avgValue: { fontSize: 27, fontWeight: '700', color: colors.primary, fontFamily: FONT },
-  avgUnit: { fontSize: 19, color: colors.subtle, fontFamily: FONT },
 });

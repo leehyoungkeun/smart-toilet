@@ -1,25 +1,30 @@
-// 디지털 점검 현황 — 청결·시설·안전·비품 점검 내역 + QR 청소·점검 인증
+// 디지털 점검 현황 — inspections 실데이터 + QR 청소·점검 인증(현장 데모)
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, Animated, Easing, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from '../icons';
 import { BackHeader, Badge } from '../ui';
 import { colors, radius, FONT } from '../theme';
+import { useKiosk } from '../context/KioskContext';
+import { getInspections } from '../lib/api';
 
-const ITEMS = [
-  { icon: 'home', title: '청결 점검', sub: '바닥·변기·세면대 청소 · 담당 김민수', time: '09:20' },
-  { icon: 'wrench', title: '시설 점검', sub: '수전·배수·도어 잠금 상태 · 담당 김민수', time: '09:25' },
-  { icon: 'shieldPlain', title: '안전·설비 점검', sub: '비상벨·조명·환기·센서 동작 · 담당 박지영', time: '09:30' },
-  { icon: 'bag', title: '비품 점검', sub: '생리용품·화장지·손비누 재고 충분', time: '09:32' },
-];
-
+const CAT_ICON = { cleanliness: 'home', facility: 'wrench', safety: 'shieldPlain', supplies: 'bag' };
+const hhmm = (iso) => { try { const n = new Date(iso); const p = (x) => String(x).padStart(2, '0'); return p(n.getHours()) + ':' + p(n.getMinutes()); } catch { return ''; } };
 const now = () => { const n = new Date(); const p = (x) => String(x).padStart(2, '0'); return p(n.getHours()) + ':' + p(n.getMinutes()); };
 
 export default function InspectionScreen({ onBack }) {
+  const { locationId } = useKiosk();
+  const [items, setItems] = useState(null); // null=로딩
   const [step, setStep] = useState(0); // 0 닫힘, 1 스캔, 2 인증중, 3 완료
   const [certified, setCertified] = useState(false);
   const [certTime, setCertTime] = useState('');
   const timer = useRef(null);
+
+  useEffect(() => {
+    let alive = true;
+    getInspections(locationId).then((rows) => { if (alive) setItems(rows); }).catch(() => { if (alive) setItems([]); });
+    return () => { alive = false; };
+  }, [locationId]);
 
   const start = () => {
     setStep(2);
@@ -28,20 +33,22 @@ export default function InspectionScreen({ onBack }) {
   };
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  const latest = items && items.length ? hhmm(items[0].inspected_at) : '—';
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ padding: 18, paddingHorizontal: 28 }}>
-        <BackHeader title="화장실 점검" subtitle="오늘 진행된 청소·점검 내역입니다 · 1일 4회 점검" onBack={onBack} />
+        <BackHeader title="화장실 점검" subtitle="오늘 진행된 청소·점검 내역입니다" onBack={onBack} />
 
         <LinearGradient colors={['#E4F6EC', '#EFFaF3']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.summary}>
           <View style={s.summaryIcon}><Icon name="check" size={26} color="#fff" strokeWidth={2.4} /></View>
           <View style={{ flex: 1 }}>
             <Text style={s.summaryTitle}>현재 화장실 상태 — 정상</Text>
-            <Text style={s.summarySub}>오늘 예정된 모든 점검이 정상 완료되었습니다</Text>
+            <Text style={s.summarySub}>최근 점검 내역이 정상 완료되었습니다</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={s.summaryMeta}>최근 점검</Text>
-            <Text style={s.summaryTime}>{certified ? certTime : '09:32'}</Text>
+            <Text style={s.summaryTime}>{certified ? certTime : latest}</Text>
           </View>
         </LinearGradient>
 
@@ -59,23 +66,30 @@ export default function InspectionScreen({ onBack }) {
               </View>
             </View>
           )}
-          {ITEMS.map((it) => (
-            <View key={it.title} style={s.row}>
-              <View style={s.rowIcon}><Icon name={it.icon} size={22} color={colors.primary} /></View>
+
+          {items === null && (
+            <View style={[s.row, { justifyContent: 'center' }]}><ActivityIndicator color={colors.primary} /></View>
+          )}
+          {items && items.length === 0 && (
+            <View style={s.row}><Text style={s.rowSub}>오늘 등록된 점검 내역이 없습니다.</Text></View>
+          )}
+          {items && items.map((it) => (
+            <View key={it.id} style={s.row}>
+              <View style={s.rowIcon}><Icon name={CAT_ICON[it.category] || 'clipboard'} size={22} color={colors.primary} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowTitle}>{it.title}</Text>
-                <Text style={s.rowSub}>{it.sub}</Text>
+                <Text style={s.rowSub}>{it.inspector ? `담당 ${it.inspector}` : '점검 완료'}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Badge label="완료" />
-                <Text style={s.rowTime}>{it.time}</Text>
+                <Badge label={it.status === 'done' ? '완료' : it.status} />
+                <Text style={s.rowTime}>{hhmm(it.inspected_at)}</Text>
               </View>
             </View>
           ))}
         </View>
 
         <View style={s.footRow}>
-          <Text style={s.foot}>다음 점검 예정 <Text style={{ color: colors.primary, fontWeight: '700' }}>14:00</Text> · 결과는 통합관제센터로 자동 전송됩니다</Text>
+          <Text style={s.foot}>점검 결과는 통합관제센터로 자동 전송됩니다</Text>
           <TouchableOpacity activeOpacity={0.9} onPress={() => setStep(1)} style={s.certBtn}>
             <Icon name="qr" size={24} color="#fff" />
             <Text style={s.certBtnText}>QR로 청소·점검 인증</Text>
