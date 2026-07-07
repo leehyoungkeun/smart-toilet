@@ -318,11 +318,11 @@ function renderAdd(){
       </div><div id="msg" style="margin:8px 0"></div>
       <button class="btn" id="save">등록하고 페어링 코드 받기</button></div>`;
     document.getElementById('save').onclick=async()=>{
-      const msg=document.getElementById('msg');
-      const p_code=code.value.trim(),p_name=name.value.trim();
+      const q=id=>document.getElementById(id); const msg=q('msg');
+      const p_code=q('code').value.trim(), p_name=q('name').value.trim();
       if(!p_code||!p_name){msg.innerHTML='<div class="err">코드와 이름은 필수입니다.</div>';return;}
-      try{const res=await rpc('admin_create_location',{p_org_code:org.value,p_code,p_name,p_sido:sido.value.trim()||null,p_sigungu:sigungu.value.trim()||null,p_device_label:dlabel.value.trim()||null,p_stock:parseInt(stock.value||'0',10)});
-        msg.innerHTML=`<div class="ok">등록 완료! 페어링 코드: <code>${esc(res.pairing_code)}</code></div>`; code.value='';name.value='';
+      try{const res=await rpc('admin_create_location',{p_org_code:q('org').value,p_code,p_name,p_sido:q('sido').value.trim()||null,p_sigungu:q('sigungu').value.trim()||null,p_device_label:q('dlabel').value.trim()||null,p_stock:parseInt(q('stock').value||'0',10)});
+        msg.innerHTML=`<div class="ok">등록 완료! 페어링 코드: <code>${esc(res.pairing_code)}</code></div>`; q('code').value='';q('name').value='';
       }catch(e){msg.innerHTML=`<div class="err">실패: ${esc(e.message)}</div>`;}
     };
   }
