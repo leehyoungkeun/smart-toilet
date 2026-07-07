@@ -71,7 +71,7 @@
   .card.pad { background:#fff; border:1px solid #E5E9F2; border-radius:14px; padding:22px; }
   .card.pad input, .card.pad select, .login input { width:100%; margin-bottom:2px; }
   .frow input[type=date] { width:150px; }
-  .frow #region { width:180px; }
+  .frow #region, .frow #sigungu { width:170px; }
 </style>
 </head>
 <body>
@@ -91,7 +91,7 @@ async function rpc(fn,body){const{data,error}=await supabase.rpc(fn,body||{});if
 function download(name,text){const b=new Blob([text],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
 function fmtDate(iso){try{const n=new Date(iso);const p=x=>String(x).padStart(2,'0');return `${n.getFullYear()}. ${p(n.getMonth()+1)}. ${p(n.getDate())}`;}catch{return'';}}
 function fmtDt(iso){try{const n=new Date(iso);const p=x=>String(x).padStart(2,'0');return `${p(n.getMonth()+1)}.${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`;}catch{return'-';}}
-function defFilters(){return{q:'',region:'',status:'',online:'',stock:'',from:null,to:null};}
+function defFilters(){return{q:'',region:'',sigungu:'',status:'',online:'',stock:'',from:null,to:null};}
 
 // ── 로그인 ──
 function renderLogin(msg){
@@ -120,7 +120,8 @@ async function renderDashboard(){
   body.innerHTML=`<div id="filters"></div><div id="stats"></div><div id="table"></div>`;
   renderFilters(); renderAll();
 }
-function regions(){ return [...new Set(state.locs.map(l=>l.sido).filter(Boolean))].sort(); }
+function regions(){ return [...new Set(state.locs.filter(l=>!l.deleted).map(l=>l.sido).filter(Boolean))].sort(); }
+function sigungus(sido){ return [...new Set(state.locs.filter(l=>!l.deleted&&(!sido||l.sido===sido)).map(l=>l.sigungu).filter(Boolean))].sort(); }
 function count(pred){ return state.locs.filter(pred).length; }
 
 function renderFilters(){
@@ -131,7 +132,8 @@ function renderFilters(){
     <div class="frow"><div class="flabel">검색어</div>
       <input id="q" placeholder="코드·이름·지역 검색" style="flex:1;min-width:220px" value="${esc(f.q)}"/></div>
     <div class="frow"><div class="flabel">지역</div>
-      <select id="region" style="min-width:160px"><option value="">전체 지역</option>${regions().map(r=>`<option ${f.region===r?'selected':''}>${esc(r)}</option>`).join('')}</select></div>
+      <select id="region"><option value="">전체 광역</option>${regions().map(r=>`<option ${f.region===r?'selected':''}>${esc(r)}</option>`).join('')}</select>
+      <select id="sigungu"><option value="">전체 기초</option>${sigungus(f.region).map(r=>`<option ${f.sigungu===r?'selected':''}>${esc(r)}</option>`).join('')}</select></div>
     <div class="frow"><div class="flabel">화장실 상태</div>
       ${chip('status','','전체')}${chip('status','active','운영중',count(l=>!l.deleted&&l.status==='active'))}${chip('status','maintenance','점검중',count(l=>!l.deleted&&l.status==='maintenance'))}${chip('status','inactive','중지',count(l=>!l.deleted&&l.status==='inactive'))}${chip('status','deleted','삭제됨',count(l=>l.deleted))}</div>
     <div class="frow"><div class="flabel">접속 상태</div>
@@ -149,6 +151,8 @@ function renderFilters(){
   document.getElementById('search').onclick=()=>{ f.q=document.getElementById('q').value.trim(); f.region=document.getElementById('region').value;
     const fr=document.getElementById('from').value, to=document.getElementById('to').value; f.from=fr?new Date(fr):null; f.to=to?new Date(to+'T23:59:59'):null; state.page=1; renderFilters(); renderAll(); };
   document.getElementById('reset').onclick=()=>{ state.filters=defFilters(); state.page=1; renderFilters(); renderAll(); };
+  document.getElementById('region').onchange=e=>{ f.region=e.target.value; f.sigungu=''; state.page=1; renderFilters(); renderAll(); };
+  document.getElementById('sigungu').onchange=e=>{ f.sigungu=e.target.value; state.page=1; renderAll(); };
   document.getElementById('q').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('search').click(); });
 }
 
@@ -159,6 +163,7 @@ function applyFilters(){
     else { if(l.deleted) return false; if(f.status && l.status!==f.status) return false; }
     if(f.q){ const s=(l.code+' '+l.name+' '+(l.org_name||'')+' '+(l.sigungu||'')+' '+(l.sido||'')).toLowerCase(); if(!s.includes(f.q.toLowerCase())) return false; }
     if(f.region && l.sido!==f.region) return false;
+    if(f.sigungu && l.sigungu!==f.sigungu) return false;
     if(f.online==='on' && !l.online) return false;
     if(f.online==='off' && l.online) return false;
     if(f.stock==='ok' && !(l.pad_qty>10)) return false;
