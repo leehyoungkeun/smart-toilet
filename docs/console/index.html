@@ -373,13 +373,20 @@ GG-SUWON-011,행궁동 공중화장실,수원시,15"></textarea>
 // ── 부팅 ──
 async function boot(){
   const{data:{user}}=await supabase.auth.getUser();
+  if(!user){ renderLogin(); return; }   // 세션 만료/무효 → 로그인
   const{data:prof}=await supabase.from('profiles').select('full_name, role, org_id').eq('id',user.id).maybeSingle();
   state.profile=prof||{}; state.role=prof?.role||null;
   const{data:orgs}=await supabase.from('organizations').select('code, name').order('name');
   state.orgs=orgs||[]; renderDashboard();
 }
-const{data:{session}}=await supabase.auth.getSession();
-if(session) boot(); else renderLogin();
+try{
+  const{data:{session}}=await supabase.auth.getSession();
+  if(session) await boot(); else renderLogin();
+}catch(e){
+  app.innerHTML=`<div style="padding:28px;font-family:sans-serif"><h3 style="color:#c00">콘솔 오류</h3><p>${esc(e&&e.message||e)}</p><button onclick="location.reload()" style="padding:8px 16px">새로고침</button> <button onclick="localStorage.clear();location.reload()" style="padding:8px 16px">세션 초기화 후 새로고침</button></div>`;
+}
+// 예기치 못한 오류도 빈 화면 대신 표시
+window.addEventListener('unhandledrejection',ev=>{ if(app.innerHTML.trim()==='') app.innerHTML=`<div style="padding:28px;color:#c00">오류: ${esc((ev.reason&&ev.reason.message)||ev.reason||'')}</div>`; });
 </script>
 </body>
 </html>
