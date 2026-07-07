@@ -311,7 +311,6 @@ function renderAdd(){
       <div class="grid2">
         <div><label class="f">코드(고유)</label><input id="code" placeholder="GG-SUWON-003"/></div>
         <div><label class="f">이름</label><input id="name" placeholder="광교호수공원 공중화장실"/></div>
-        <div><label class="f">시·도</label><input id="sido" placeholder="경기도"/></div>
         <div><label class="f">시·군·구</label><input id="sigungu" placeholder="수원시"/></div>
         <div><label class="f">초기 재고</label><input id="stock" type="number" value="20"/></div>
         <div><label class="f">단말 라벨(선택)</label><input id="dlabel" placeholder="입구 키오스크"/></div>
@@ -321,7 +320,7 @@ function renderAdd(){
       const q=id=>document.getElementById(id); const msg=q('msg');
       const p_code=q('code').value.trim(), p_name=q('name').value.trim();
       if(!p_code||!p_name){msg.innerHTML='<div class="err">코드와 이름은 필수입니다.</div>';return;}
-      try{const res=await rpc('admin_create_location',{p_org_code:q('org').value,p_code,p_name,p_sido:q('sido').value.trim()||null,p_sigungu:q('sigungu').value.trim()||null,p_device_label:q('dlabel').value.trim()||null,p_stock:parseInt(q('stock').value||'0',10)});
+      try{const res=await rpc('admin_create_location',{p_org_code:q('org').value,p_code,p_name,p_sigungu:q('sigungu').value.trim()||null,p_device_label:q('dlabel').value.trim()||null,p_stock:parseInt(q('stock').value||'0',10)});
         msg.innerHTML=`<div class="ok">등록 완료! 페어링 코드: <code>${esc(res.pairing_code)}</code></div>`; q('code').value='';q('name').value='';
       }catch(e){msg.innerHTML=`<div class="err">실패: ${esc(e.message)}</div>`;}
     };
@@ -329,15 +328,14 @@ function renderAdd(){
   function many(){
     document.getElementById('pane').innerHTML=`<div class="card pad">
       <label class="f">지자체(전체 적용)</label><select id="org" style="max-width:400px">${orgOptions()}</select>
-      <label class="f" style="margin-top:10px">시·도(선택, 전체 적용)</label><input id="sido" style="max-width:400px" placeholder="경기도"/>
       <label class="f" style="margin-top:10px">붙여넣기 — 한 줄에: <code>코드,이름,시군구,재고</code></label>
       <textarea id="csv" placeholder="GG-SUWON-010,매산로 공중화장실,수원시,20
 GG-SUWON-011,행궁동 공중화장실,수원시,15"></textarea>
       <div id="msg" style="margin:8px 0"></div><button class="btn" id="run">일괄 등록</button>
       <div id="result" style="margin-top:14px"></div></div>`;
     document.getElementById('run').onclick=async()=>{
-      const msg=document.getElementById('msg'); const org=document.getElementById('org').value; const sido=document.getElementById('sido').value.trim()||null;
-      const rows=document.getElementById('csv').value.split('\n').map(l=>l.trim()).filter(Boolean).map(line=>{const c=line.split(',').map(x=>x.trim());return{org_code:org,code:c[0],name:c[1]||c[0],sigungu:c[2]||'',sido,stock:c[3]||'0'};}).filter(r=>r.code);
+      const msg=document.getElementById('msg'); const org=document.getElementById('org').value;
+      const rows=document.getElementById('csv').value.split('\n').map(l=>l.trim()).filter(Boolean).map(line=>{const c=line.split(',').map(x=>x.trim());return{org_code:org,code:c[0],name:c[1]||c[0],sigungu:c[2]||'',stock:c[3]||'0'};}).filter(r=>r.code);
       if(!rows.length){msg.innerHTML='<div class="err">추가할 행이 없습니다.</div>';return;}
       if(rows.length>500){msg.innerHTML='<div class="err">한 번에 500개 이하로 나눠 주세요.</div>';return;}
       msg.innerHTML=`<div class="muted">${rows.length}개 처리 중…</div>`;
