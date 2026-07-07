@@ -35,7 +35,7 @@
   .factions { display:flex; justify-content:center; gap:10px; padding:9px; background:#FAFBFD; }
 
   /* 통계 카드 */
-  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:10px; }
+  .stats { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:10px; }
   .stat { background:#fff; border:1px solid #E5E9F2; border-radius:12px; padding:11px 16px; display:flex; align-items:center; gap:12px; }
   .stat .ic { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:19px; }
   .stat .v { font-size:23px; font-weight:800; line-height:1; }
@@ -91,7 +91,13 @@ async function rpc(fn,body){const{data,error}=await supabase.rpc(fn,body||{});if
 function download(name,text){const b=new Blob([text],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
 function fmtDate(iso){try{const n=new Date(iso);const p=x=>String(x).padStart(2,'0');return `${n.getFullYear()}. ${p(n.getMonth()+1)}. ${p(n.getDate())}`;}catch{return'';}}
 function fmtDt(iso){try{const n=new Date(iso);const p=x=>String(x).padStart(2,'0');return `${p(n.getMonth()+1)}.${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`;}catch{return'-';}}
-function defFilters(){return{q:'',region:'',sigungu:'',status:'',online:'',stock:'',from:null,to:null};}
+function defFilters(){return{q:'',region:'',sigungu:'',status:'',online:'',stock:'',maint:'',from:null,to:null};}
+function maintInfo(l){ if(!l.maintenance_until) return {txt:'미설정',cls:'',state:'none'};
+  const t=new Date(); t.setHours(0,0,0,0); const due=new Date(l.maintenance_until+'T00:00:00');
+  const days=Math.round((due-t)/86400000);
+  if(days<0) return {txt:'만료',cls:'b-r',state:'expired'};
+  if(days<=30) return {txt:days+'일',cls:'b-a',state:'soon'};
+  return {txt:days+'일',cls:'b-g',state:'ok'}; }
 
 // ── 로그인 ──
 function renderLogin(msg){
@@ -140,6 +146,8 @@ function renderFilters(){
       ${chip('online','','전체')}${chip('online','on','온라인',count(l=>!l.deleted&&l.online))}${chip('online','off','오프라인',count(l=>!l.deleted&&!l.online))}</div>
     <div class="frow"><div class="flabel">재고</div>
       ${chip('stock','','전체')}${chip('stock','ok','정상',count(l=>!l.deleted&&l.pad_qty>10))}${chip('stock','low','부족',count(l=>!l.deleted&&l.pad_qty!=null&&l.pad_qty<=10))}</div>
+    <div class="frow"><div class="flabel">유지보수</div>
+      ${chip('maint','','전체')}${chip('maint','ok','정상',count(l=>!l.deleted&&maintInfo(l).state==='ok'))}${chip('maint','soon','만료임박',count(l=>!l.deleted&&maintInfo(l).state==='soon'))}${chip('maint','expired','만료',count(l=>!l.deleted&&maintInfo(l).state==='expired'))}</div>
     <div class="frow"><div class="flabel">등록기간</div>
       <button class="chip" data-p="1">오늘</button><button class="chip" data-p="7">7일</button><button class="chip" data-p="30">1개월</button><button class="chip" data-p="90">3개월</button><button class="chip" data-p="365">1년</button>
       <input id="from" type="date" value="${f.from?f.from.toISOString().slice(0,10):''}"/> ~ <input id="to" type="date" value="${f.to?f.to.toISOString().slice(0,10):''}"/></div>
@@ -168,6 +176,7 @@ function applyFilters(){
     if(f.online==='off' && l.online) return false;
     if(f.stock==='ok' && !(l.pad_qty>10)) return false;
     if(f.stock==='low' && !(l.pad_qty!=null&&l.pad_qty<=10)) return false;
+    if(f.maint && maintInfo(l).state!==f.maint) return false;
     if(f.from && new Date(l.created_at)<f.from) return false;
     if(f.to && new Date(l.created_at)>f.to) return false;
     return true;
@@ -179,12 +188,14 @@ function renderStats(){
   const L=state.locs.filter(l=>!l.deleted);
   const off=L.filter(l=>!l.online).length, low=L.filter(l=>l.pad_qty!=null&&l.pad_qty<=10).length;
   const comp=L.reduce((a,l)=>a+(l.open_complaints||0),0);
+  const soon=L.filter(l=>maintInfo(l).state==='soon'||maintInfo(l).state==='expired').length;
   const ok=L.filter(l=>l.online&&l.pad_qty>10&&(l.open_complaints||0)===0).length;
   const card=(bg,fg,ic,v,l)=>`<div class="stat"><div class="ic" style="background:${bg};color:${fg}">${ic}</div><div><div class="v">${v}</div><div class="l">${l}</div></div></div>`;
   document.getElementById('stats').innerHTML=`<div class="stats">
     ${card('#FBE7E7','#D25151','📴',off,'오프라인')}
     ${card('#FCEFD6','#B5730A','📦',low,'재고 부족')}
     ${card('#E3EDFB','#2C6CD0','📝',comp,'미처리 민원')}
+    ${card('#FDE7D0','#C8780A','🛠️',soon,'유지보수 임박')}
     ${card('#E4F6EC','#22A667','✅',ok,'정상')}</div>`;
 }
 
@@ -194,6 +205,7 @@ function renderTable(){
   const rows=all.slice((state.page-1)*ps, state.page*ps);
   const body=rows.map((l,i)=>{
     const st=l.deleted?{l:'삭제됨',c:'b-r'}:(STATUS[l.status]||{l:l.status,c:'b-x'});
+    const mi=maintInfo(l);
     return `<tr${l.deleted?' style="opacity:.6"':''}>
       <td class="muted">${(state.page-1)*ps+i+1}</td>
       <td><code>${esc(l.code)}</code></td>
@@ -204,6 +216,7 @@ function renderTable(){
       <td><span class="dot ${l.online?'on':'off'}"></span>${l.online?'온라인':'오프라인'}</td>
       <td>${l.pad_qty==null?'-':`<span class="badge ${l.pad_qty<=10?'b-a':'b-g'}">${l.pad_qty}/${l.pad_cap}</span>`}</td>
       <td>${l.open_complaints>0?`<span class="badge b-r">${l.open_complaints}건</span>`:'<span class="muted">0</span>'}</td>
+      <td>${mi.state==='none'?'<span class="muted">-</span>:`<span class="badge ${mi.cls}">${mi.txt}</span>`}</td>
       <td class="muted">${fmtDate(l.created_at)}</td>
       <td>${l.device_code?`<code>${esc(l.device_code)}</code>`:'<span class="muted">미연결</span>'}</td>
     </tr>`;
@@ -216,8 +229,8 @@ function renderTable(){
         ${canAdd()?'<button class="btn sm" id="add">＋ 화장실 등록</button>':''}
       </div></div>
     <div class="tscroll"><table>
-      <thead><tr><th>No</th><th>코드</th><th>이름</th><th>소속</th><th>지역</th><th>상태</th><th>접속</th><th>재고</th><th>민원</th><th>등록일</th><th>장비코드</th></tr></thead>
-      <tbody>${body||'<tr><td colspan="11" class="muted" style="text-align:center;padding:30px">조건에 맞는 화장실이 없습니다.</td></tr>'}</tbody>
+      <thead><tr><th>No</th><th>코드</th><th>이름</th><th>소속</th><th>지역</th><th>상태</th><th>접속</th><th>재고</th><th>민원</th><th>유지보수</th><th>등록일</th><th>장비코드</th></tr></thead>
+      <tbody>${body||'<tr><td colspan="12" class="muted" style="text-align:center;padding:30px">조건에 맞는 화장실이 없습니다.</td></tr>'}</tbody>
     </table></div>
     <div class="pager"><span class="muted">${total===0?0:(state.page-1)*ps+1}–${Math.min(state.page*ps,total)} / ${total}</span>
       <div class="pg"><button class="btn sm line" id="prev" ${state.page<=1?'disabled':''}>이전</button>
@@ -251,6 +264,7 @@ function detail(id){
       ${row('장비코드(고유)',l.device_code?`<code>${esc(l.device_code)}</code>${l.paired?'':' <span class="muted">· 미등록</span>'}`:'-')}
       ${row('생리용품 재고',l.pad_qty==null?'-':`${l.pad_qty} / ${l.pad_cap}`)}
       ${row('미처리 민원',(l.open_complaints||0)+'건')}
+      ${row('유지보수',l.maintenance_until?`${l.maintenance_until} · ${maintInfo(l).txt}`:'미설정')}
       ${row('환경(더미)',l.temperature==null?'-':`${l.temperature}°C · ${l.humidity}% · PM${l.pm25} (${fmtDt(l.env_at)})`)}
       ${row('등록일',fmtDate(l.created_at))}
     </div>
@@ -284,6 +298,7 @@ function openEdit(l){
       <div><label class="f">시·도</label><input id="e_sido" value="${esc(l.sido||'')}"/></div>
       <div><label class="f">시·군·구</label><input id="e_sigungu" value="${esc(l.sigungu||'')}"/></div>
       <div><label class="f">재고 (최대 ${l.pad_cap??30})</label><input id="e_stock" type="number" value="${l.pad_qty??0}"/></div>
+      <div><label class="f">유지보수 만료일</label><input id="e_maint" type="date" value="${l.maintenance_until||''}"/></div>
     </div><div id="e_msg" style="margin:10px 0"></div>
     <div style="display:flex;gap:8px"><button class="btn" data-save>저장</button><button class="btn line" data-x>취소</button></div>`);
   bd.querySelectorAll('input,select').forEach(el=>el.style.width='100%');
@@ -294,7 +309,7 @@ function openEdit(l){
       await rpc('admin_update_location',{ p_id:l.id,
         p_name:q('#e_name').value.trim()||null, p_sido:q('#e_sido').value.trim()||null,
         p_sigungu:q('#e_sigungu').value.trim()||null, p_status:q('#e_status').value,
-        p_stock:parseInt(q('#e_stock').value||'0',10) });
+        p_stock:parseInt(q('#e_stock').value||'0',10), p_maintenance_until:q('#e_maint').value||null });
       bd.remove(); renderDashboard();
     }catch(e){ q('#e_msg').innerHTML=`<div class="err">저장 실패: ${esc(e.message)}</div>`; }
   };
