@@ -216,7 +216,7 @@ function renderTable(){
       <td><span class="dot ${l.online?'on':'off'}"></span>${l.online?'온라인':'오프라인'}</td>
       <td>${l.pad_qty==null?'-':`<span class="badge ${l.pad_qty<=10?'b-a':'b-g'}">${l.pad_qty}/${l.pad_cap}</span>`}</td>
       <td>${l.open_complaints>0?`<span class="badge b-r">${l.open_complaints}건</span>`:'<span class="muted">0</span>'}</td>
-      <td>${mi.state==='none'?'<span class="muted">-</span>:`<span class="badge ${mi.cls}">${mi.txt}</span>`}</td>
+      <td>${mi.state==='none'?'<span class="muted">-</span>':`<span class="badge ${mi.cls}">${mi.txt}</span>`}</td>
       <td class="muted">${fmtDate(l.created_at)}</td>
       <td>${l.device_code?`<code>${esc(l.device_code)}</code>`:'<span class="muted">미연결</span>'}</td>
     </tr>`;
