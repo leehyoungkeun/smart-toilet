@@ -70,6 +70,14 @@
   label.f { font-size:13px; color:#6B7A95; display:block; margin-bottom:4px; }
   .card.pad { background:#fff; border:1px solid #E5E9F2; border-radius:14px; padding:22px; }
   .card.pad input, .card.pad select, .login input { width:100%; margin-bottom:2px; }
+  .dbar { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .dbar h2 { margin:0; font-size:19px; }
+  .tabs2 { display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid #E5E9F2; margin-bottom:14px; }
+  .tab2 { padding:9px 16px; font-size:14px; font-weight:600; color:#5C6B86; cursor:pointer; border-bottom:2px solid transparent; }
+  .tab2.on { color:#2C6CD0; border-bottom-color:#2C6CD0; }
+  .rbar { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+  .chip.sm { padding:5px 12px; font-size:13px; }
+  .ov { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
   .frow input[type=date] { width:150px; }
   .frow #region, .frow #sigungu { width:170px; }
 </style>
@@ -242,51 +250,119 @@ function renderTable(){
   const a=t.querySelector('#add'); if(a) a.onclick=renderAdd;
   t.querySelector('#prev').onclick=()=>{ if(state.page>1){state.page--;renderTable();} };
   t.querySelector('#next').onclick=()=>{ if(state.page<pages){state.page++;renderTable();} };
-  t.querySelectorAll('.lnk').forEach(el=>el.onclick=()=>detail(el.dataset.id));
+  t.querySelectorAll('.lnk').forEach(el=>el.onclick=()=>openDetail(el.dataset.id));
 }
 
 function modalEl(html){ const bd=document.createElement('div'); bd.className='backdrop'; bd.innerHTML=`<div class="modal">${html}</div>`;
   bd.onclick=e=>{ if(e.target===bd) bd.remove(); }; document.body.appendChild(bd); return bd; }
 
-function detail(id){
-  const l=state.locs.find(x=>String(x.id)===String(id)); if(!l) return;
+// ── 화장실 상세 (전체화면 · 개요 + 로그 탭 + CSV) ──
+const LOG_TABS = [
+  { key:'cleaning', label:'청소', table:'cleaning_logs', ts:'cleaned_at',
+    cols:[['cleaned_at','시각','dt'],['cleaner','담당자'],['note','비고']] },
+  { key:'dispense', label:'지급', table:'dispense_logs', ts:'dispensed_at',
+    cols:[['dispensed_at','시각','dt'],['item','품목'],['quantity','수량'],['method','방식'],['status','상태']] },
+  { key:'complaints', label:'민원', table:'complaints', ts:'created_at',
+    cols:[['reception_no','접수번호'],['category','유형'],['detail','내용'],['location_label','위치'],['status','상태'],['created_at','접수','dt']] },
+  { key:'inspections', label:'점검', table:'inspections', ts:'inspected_at',
+    cols:[['inspected_at','시각','dt'],['category','구분'],['title','항목'],['inspector','담당자'],['status','상태']] },
+  { key:'safety', label:'안심', table:'safety_events', ts:'occurred_at',
+    cols:[['occurred_at','시각','dt'],['type','유형'],['title','제목'],['detail','상세'],['status','상태']] },
+  { key:'satisfaction', label:'만족도', table:'satisfaction_responses', ts:'created_at',
+    cols:[['created_at','시각','dt'],['rating','평점'],['comment','의견']] },
+  { key:'env', label:'환경', table:'env_readings', ts:'recorded_at', env:true,
+    cols:[['recorded_at','시각','dt'],['temperature','온도'],['humidity','습도'],['ammonia_ppm','암모니아'],['pm25','PM2.5']] },
+];
+
+function openDetail(id){ state.detailId=id; state.tab='overview'; state.range=30; renderDetail(); }
+
+function renderDetail(){
+  const l=state.locs.find(x=>String(x.id)===String(state.detailId));
+  if(!l){ renderDashboard(); return; }
+  mountShell();
+  const admin=canAdd();
+  const body=document.getElementById('body');
+  const tabs=[{key:'overview',label:'개요'},...LOG_TABS].map(t=>`<div class="tab2 ${state.tab===t.key?'on':''}" data-t="${t.key}">${esc(t.label)}</div>`).join('');
+  body.innerHTML=`<div class="dbar"><button class="btn line sm" id="back">← 목록</button>
+      <h2>${esc(l.name)} <span class="muted" style="font-weight:400"><code>${esc(l.code)}</code> · ${esc(l.org_name||'')}</span></h2></div>
+    <div class="tabs2">${tabs}</div><div id="tab"></div>`;
+  document.getElementById('back').onclick=renderDashboard;
+  body.querySelectorAll('.tab2').forEach(t=>t.onclick=()=>{ state.tab=t.dataset.t; renderDetail(); });
+  renderTab(l, admin);
+}
+
+async function renderTab(l, admin){
+  const el=document.getElementById('tab');
+  if(state.tab==='overview'){ el.innerHTML=overviewHtml(l,admin); wireOverview(l); return; }
+  const tab=LOG_TABS.find(t=>t.key===state.tab);
+  const presets = tab.env ? [['오늘',1],['3일',3],['7일',7]] : [['오늘',1],['7일',7],['30일',30],['전체','null']];
+  if(tab.env && (state.range===null || state.range>7)) state.range=3;
+  el.innerHTML=`<div class="rbar">${presets.map(([lab,d])=>`<button class="chip sm ${String(state.range)===String(d==='null'?null:d)?'on':''}" data-d="${d}">${lab}</button>`).join('')}
+    <span style="flex:1"></span><button class="btn sm line" id="csv">CSV 내보내기</button></div>
+    <div id="logbody" class="muted" style="padding:14px">불러오는 중…</div>`;
+  el.querySelectorAll('.chip[data-d]').forEach(b=>b.onclick=()=>{ state.range=b.dataset.d==='null'?null:+b.dataset.d; renderDetail(); });
+  const res=await fetchLog(tab);
+  const lb=document.getElementById('logbody');
+  if(res.error){ lb.innerHTML=`<div class="err">조회 실패: ${esc(res.error)}</div>`; return; }
+  lb.outerHTML=logTable(tab,res.rows);
+  document.getElementById('csv').onclick=()=>exportCsv(tab,res.rows,l);
+}
+
+async function fetchLog(tab){
+  let q=supabase.from(tab.table).select('*').eq('location_id',state.detailId).order(tab.ts,{ascending:false}).limit(1000);
+  if(state.range){ const from=new Date(Date.now()-state.range*86400000); q=q.gte(tab.ts, from.toISOString()); }
+  const {data,error}=await q;
+  return error?{error:error.message}:{rows:data||[]};
+}
+function cellVal(c,r){ const v=r[c[0]]; if(v==null) return ''; return c[2]==='dt'?fmtDt(v):String(v); }
+function logTable(tab,rows){
+  const head=tab.cols.map(c=>`<th>${esc(c[1])}</th>`).join('');
+  const body=rows.map(r=>`<tr>${tab.cols.map(c=>`<td>${esc(cellVal(c,r))}</td>`).join('')}</tr>`).join('');
+  return `<div id="logbody"><div class="muted" style="margin:6px 0">총 ${rows.length}건${rows.length>=1000?' (최대 1000건 표시)':''}</div>
+    <div class="tcard tscroll"><table><thead><tr>${head}</tr></thead>
+    <tbody>${body||`<tr><td colspan="${tab.cols.length}" class="muted" style="text-align:center;padding:24px">기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+}
+function exportCsv(tab,rows,l){
+  const head=tab.cols.map(c=>c[1]).join(',');
+  const body=rows.map(r=>tab.cols.map(c=>{ const v=r[c[0]]; const sv=v==null?'':(c[2]==='dt'?fmtDt(v):String(v)); return '"'+sv.replace(/"/g,'""')+'"'; }).join(',')).join('\n');
+  download(`${l.code}_${tab.key}.csv`, '﻿'+head+'\n'+body);
+}
+function overviewHtml(l,admin){
   const st=STATUS[l.status]||{l:l.status};
   const row=(k,v)=>`<div class="k">${k}</div><div>${v}</div>`;
-  const admin=canAdd();
-  const bd=modalEl(`<div style="display:flex;justify-content:space-between;align-items:center">
-    <h2 style="margin:0">${esc(l.name)}</h2><button class="btn sm line" data-x>닫기</button></div>
-    <div class="kv">
+  const card=(v,lab)=>`<div class="stat"><div><div class="v" style="font-size:22px">${v}</div><div class="l">${lab}</div></div></div>`;
+  return `<div class="ov">
+    ${card((l.today_cleanings||0)+'회','오늘 청소')}
+    ${card(l.pad_qty==null?'-':l.pad_qty+' / '+l.pad_cap,'생리용품 재고')}
+    ${card((l.open_complaints||0)+'건','미처리 민원')}
+    ${card(l.online?'온라인':'오프라인','접속')}</div>
+    <div class="card pad"><div class="kv">
       ${row('코드',`<code>${esc(l.code)}</code>`)}
       ${row('소속',esc(l.org_name||'-'))}
       ${row('지역',esc([l.sido,l.sigungu].filter(Boolean).join(' ')||'-'))}
-      ${row('상태',st.l)}
-      ${row('접속',l.online?'온라인':`오프라인 (마지막 ${fmtDt(l.last_seen_at)})`)}
+      ${row('상태',esc(st.l))}
       ${row('장비코드(고유)',l.device_code?`<code>${esc(l.device_code)}</code>${l.paired?'':' <span class="muted">· 미등록</span>'}`:'-')}
-      ${row('생리용품 재고',l.pad_qty==null?'-':`${l.pad_qty} / ${l.pad_cap}`)}
-      ${row('미처리 민원',(l.open_complaints||0)+'건')}
-      ${row('유지보수',l.maintenance_until?`${l.maintenance_until} · ${maintInfo(l).txt}`:'미설정')}
-      ${row('환경(더미)',l.temperature==null?'-':`${l.temperature}°C · ${l.humidity}% · PM${l.pm25} (${fmtDt(l.env_at)})`)}
+      ${row('유지보수',l.maintenance_until?`${esc(l.maintenance_until)} · ${maintInfo(l).txt}`:'미설정')}
+      ${row('최근 접속',l.last_seen_at?fmtDt(l.last_seen_at):'-')}
       ${row('등록일',fmtDate(l.created_at))}
     </div>
-    ${admin?`<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
-      ${l.deleted
-        ? `<button class="btn" data-restore>복원</button>`
-        : `<button class="btn" data-edit>수정</button><button class="btn line" style="color:#B5730A;border-color:#F0D9AF" data-soft>삭제(보관)</button>`}
-      <button class="btn line" style="color:#D25151;border-color:#F3C2C2" data-hard>완전 삭제</button></div>
-    ${!l.deleted?`<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-      ${l.paired?'<button class="btn line" data-unpair>재페어링 초기화</button>':''}
-      <button class="btn line" data-reissue>코드 재발급</button></div>`:''}`:''}`);
-  bd.querySelector('[data-x]').onclick=()=>bd.remove();
-  const act=async(fn,body,after)=>{ try{ await rpc(fn,body); bd.remove(); renderDashboard(); }catch(e){ alert((after||'실패')+': '+e.message); } };
-  if(admin){
-    const edit=bd.querySelector('[data-edit]'); if(edit) edit.onclick=()=>{ bd.remove(); openEdit(l); };
-    const soft=bd.querySelector('[data-soft]'); if(soft) soft.onclick=()=>{ if(confirm(`'${l.name}'을(를) 삭제(보관) 처리할까요?\n목록에서 숨겨지고 '삭제됨' 필터에서 복원할 수 있습니다.`)) act('admin_soft_delete_location',{p_id:l.id},'삭제 실패'); };
-    const restore=bd.querySelector('[data-restore]'); if(restore) restore.onclick=()=>act('admin_restore_location',{p_id:l.id},'복원 실패');
-    const hard=bd.querySelector('[data-hard]'); if(hard) hard.onclick=()=>{ if(confirm(`[완전 삭제] '${l.name}'\n단말·재고·민원·지급/만족도 기록이 영구 삭제됩니다. 되돌릴 수 없습니다.\n\n계속할까요?`)) act('admin_delete_location',{p_id:l.id},'완전삭제 실패'); };
-    const unpair=bd.querySelector('[data-unpair]'); if(unpair) unpair.onclick=()=>{ if(confirm(`'${l.name}' 단말 연결을 해제할까요?\n같은 코드(${l.device_code||''})로 새 태블릿에서 다시 등록할 수 있습니다.`)) act('admin_unpair_device',{p_location_id:l.id},'초기화 실패'); };
-    const reissue=bd.querySelector('[data-reissue]'); if(reissue) reissue.onclick=async()=>{ if(!confirm(`'${l.name}' 페어링 코드를 새로 발급할까요?\n기존 코드(${l.device_code||''})는 더 이상 쓸 수 없습니다.`)) return;
-      try{ const r=await rpc('admin_reissue_pairing_code',{p_location_id:l.id}); bd.remove(); alert('새 코드: '+((r.codes||[]).join(', ')||'-')); renderDashboard(); }catch(e){ alert('재발급 실패: '+e.message); } };
-  }
+    ${admin?`<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      ${l.deleted?`<button class="btn" data-restore>복원</button>`:`<button class="btn" data-edit>수정</button><button class="btn line" style="color:#B5730A;border-color:#F0D9AF" data-soft>삭제(보관)</button>`}
+      <button class="btn line" style="color:#D25151;border-color:#F3C2C2" data-hard>완전 삭제</button>
+      ${!l.deleted&&l.paired?'<button class="btn line" data-unpair>재페어링 초기화</button>':''}
+      ${!l.deleted?'<button class="btn line" data-reissue>코드 재발급</button>':''}</div>`:''}
+    </div>`;
+}
+function wireOverview(l){
+  const q=sel=>document.querySelector(sel);
+  const act=async(fn,body,after)=>{ try{ await rpc(fn,body); renderDashboard(); }catch(e){ alert((after||'실패')+': '+e.message); } };
+  const edit=q('[data-edit]'); if(edit) edit.onclick=()=>openEdit(l);
+  const soft=q('[data-soft]'); if(soft) soft.onclick=()=>{ if(confirm(`'${l.name}'을(를) 삭제(보관) 처리할까요?`)) act('admin_soft_delete_location',{p_id:l.id},'삭제 실패'); };
+  const restore=q('[data-restore]'); if(restore) restore.onclick=()=>act('admin_restore_location',{p_id:l.id},'복원 실패');
+  const hard=q('[data-hard]'); if(hard) hard.onclick=()=>{ if(confirm(`[완전 삭제] '${l.name}' — 기록이 영구 삭제됩니다. 계속할까요?`)) act('admin_delete_location',{p_id:l.id},'완전삭제 실패'); };
+  const unpair=q('[data-unpair]'); if(unpair) unpair.onclick=()=>{ if(confirm(`'${l.name}' 단말 연결을 해제할까요? 같은 코드로 재등록할 수 있습니다.`)) act('admin_unpair_device',{p_location_id:l.id},'초기화 실패'); };
+  const reissue=q('[data-reissue]'); if(reissue) reissue.onclick=async()=>{ if(!confirm(`'${l.name}' 페어링 코드를 새로 발급할까요? 기존 코드는 사용 불가.`)) return;
+    try{ const r=await rpc('admin_reissue_pairing_code',{p_location_id:l.id}); alert('새 코드: '+((r.codes||[]).join(', ')||'-')); renderDashboard(); }catch(e){ alert('재발급 실패: '+e.message); } };
 }
 
 function openEdit(l){
