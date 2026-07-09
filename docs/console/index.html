@@ -42,18 +42,21 @@
   .stat .l { font-size:12px; color:#7A869C; margin-top:3px; }
 
   /* 표 */
-  .tcard { background:#fff; border:1px solid #E5E9F2; border-radius:14px; overflow:hidden; }
+  .tcard { background:#fff; border:1px solid #E7EBF3; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(20,40,80,.04); }
   .tbar { display:flex; align-items:center; justify-content:space-between; padding:9px 16px; border-bottom:1px solid #F0F2F7; }
   .tbar h2 { font-size:15px; margin:0; } .tbar .tools { display:flex; gap:8px; align-items:center; }
   .tscroll { overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; font-size:13px; min-width:900px; }
-  th,td { text-align:left; padding:6px 12px; border-bottom:1px solid #F1F3F8; white-space:nowrap; }
-  th { background:#F7F9FC; color:#6B7A95; font-weight:600; font-size:12px; }
-  tr:hover td { background:#FBFCFE; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; min-width:900px; }
+  th,td { text-align:left; padding:11px 16px; border-bottom:1px solid #F2F4F9; white-space:nowrap; }
+  th { background:#FafBfD; color:#8A94A9; font-weight:600; font-size:11.5px; letter-spacing:.4px; }
+  tbody tr:last-child td { border-bottom:0; }
+  tbody tr:hover td { background:#F6F9FE; }
+  .nowrap { white-space:nowrap; }
+  .stars { color:#F5A623; letter-spacing:1px; } .star-off { color:#E1E6EF; }
   .lnk { color:#3B5BDB; font-weight:600; cursor:pointer; }
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; }
   .on{background:#22A667;} .off{background:#D25151;}
-  .badge { border-radius:7px; padding:3px 9px; font-size:12px; font-weight:700; display:inline-block; }
+  .badge { border-radius:999px; padding:3px 11px; font-size:12px; font-weight:600; display:inline-block; }
   .b-g{background:#E4F6EC;color:#138A55;} .b-a{background:#FCEFD6;color:#B5730A;} .b-x{background:#EDEFF4;color:#69748C;}
   .b-r{background:#FBE3E3;color:#C42B28;} .b-b{background:#E3EDFB;color:#2C6CD0;}
   .pager { display:flex; align-items:center; justify-content:space-between; padding:8px 16px; }
@@ -72,9 +75,10 @@
   .card.pad input, .card.pad select, .login input { width:100%; margin-bottom:2px; }
   .dbar { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
   .dbar h2 { margin:0; font-size:19px; }
-  .tabs2 { display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid #E5E9F2; margin-bottom:14px; }
-  .tab2 { padding:9px 16px; font-size:14px; font-weight:600; color:#5C6B86; cursor:pointer; border-bottom:2px solid transparent; }
-  .tab2.on { color:#2C6CD0; border-bottom-color:#2C6CD0; }
+  .tabs2 { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; background:#fff; padding:6px; border:1px solid #E7EBF3; border-radius:14px; box-shadow:0 1px 3px rgba(20,40,80,.04); }
+  .tab2 { padding:9px 18px; font-size:14px; font-weight:600; color:#5C6B86; cursor:pointer; border-radius:10px; transition:all .12s; }
+  .tab2:hover { background:#F3F6FC; }
+  .tab2.on { color:#fff; background:linear-gradient(90deg,#2C6CD0,#4353E0); box-shadow:0 3px 8px rgba(44,108,208,.28); }
   .rbar { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
   .chip.sm { padding:5px 12px; font-size:13px; }
   .ov { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
@@ -314,17 +318,33 @@ async function fetchLog(tab){
   const {data,error}=await q;
   return error?{error:error.message}:{rows:data||[]};
 }
-function cellVal(c,r){ const v=r[c[0]]; if(v==null) return ''; return c[2]==='dt'?fmtDt(v):String(v); }
+function badge(label,cls){ return `<span class="badge ${cls}">${esc(label)}</span>`; }
+const CAT_KO = { cleanliness:'청결', facility:'시설', safety:'안전', supplies:'비품' };
+const SAFETY_KO = { emergency_bell:'비상벨', spycam_scan:'몰카탐지', cctv:'CCTV', abnormal_sound:'이상음' };
+function fmtCell(tabKey, field, v){
+  if(v==null||v==='') return '<span class="muted">-</span>';
+  if(field==='status'){
+    if(tabKey==='complaints'){ const m={received:['접수','b-b'],in_progress:['처리중','b-a'],done:['완료','b-g']}[v]; return m?badge(m[0],m[1]):esc(v); }
+    const m={completed:['완료','b-g'],done:['완료','b-g'],normal:['이상없음','b-g'],resolved:['해결','b-g'],confirmed:['확인','b-b']}[v]; return m?badge(m[0],m[1]):esc(v);
+  }
+  if(tabKey==='safety'&&field==='type') return badge(SAFETY_KO[v]||v,'b-b');
+  if(tabKey==='inspections'&&field==='category') return esc(CAT_KO[v]||v);
+  if(tabKey==='dispense'&&field==='method') return badge(String(v).toUpperCase(),'b-b');
+  if(tabKey==='satisfaction'&&field==='rating'){ const n=+v; return `<span class="stars">${'★'.repeat(n)}<span class="star-off">${'★'.repeat(5-n)}</span></span> <span class="muted">${n}.0</span>`; }
+  return esc(String(v));
+}
+function cellHtml(tab,c,r){ if(c[2]==='dt'){ const v=r[c[0]]; return v?`<span class="nowrap">${esc(fmtDt(v))}</span>`:'<span class="muted">-</span>'; } return fmtCell(tab.key,c[0],r[c[0]]); }
+function cellText(tab,c,r){ const v=r[c[0]]; if(v==null||v==='') return ''; if(c[2]==='dt') return fmtDt(v); return fmtCell(tab.key,c[0],v).replace(/<[^>]*>/g,'').trim(); }
 function logTable(tab,rows){
   const head=tab.cols.map(c=>`<th>${esc(c[1])}</th>`).join('');
-  const body=rows.map(r=>`<tr>${tab.cols.map(c=>`<td>${esc(cellVal(c,r))}</td>`).join('')}</tr>`).join('');
-  return `<div id="logbody"><div class="muted" style="margin:6px 0">총 ${rows.length}건${rows.length>=1000?' (최대 1000건 표시)':''}</div>
+  const body=rows.map(r=>`<tr>${tab.cols.map(c=>`<td>${cellHtml(tab,c,r)}</td>`).join('')}</tr>`).join('');
+  return `<div id="logbody"><div class="muted" style="margin:2px 0 10px">총 ${rows.length}건${rows.length>=1000?' (최대 1000건 표시)':''}</div>
     <div class="tcard tscroll"><table><thead><tr>${head}</tr></thead>
-    <tbody>${body||`<tr><td colspan="${tab.cols.length}" class="muted" style="text-align:center;padding:24px">기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+    <tbody>${body||`<tr><td colspan="${tab.cols.length}" class="muted" style="text-align:center;padding:28px">기록이 없습니다.</td></tr>`}</tbody></table></div></div>`;
 }
 function exportCsv(tab,rows,l){
   const head=tab.cols.map(c=>c[1]).join(',');
-  const body=rows.map(r=>tab.cols.map(c=>{ const v=r[c[0]]; const sv=v==null?'':(c[2]==='dt'?fmtDt(v):String(v)); return '"'+sv.replace(/"/g,'""')+'"'; }).join(',')).join('\n');
+  const body=rows.map(r=>tab.cols.map(c=>'"'+cellText(tab,c,r).replace(/"/g,'""')+'"').join(',')).join('\n');
   download(`${l.code}_${tab.key}.csv`, '﻿'+head+'\n'+body);
 }
 function overviewHtml(l,admin){
