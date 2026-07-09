@@ -12,9 +12,21 @@ const CATS = [
   { id: 3, icon: 'bag', label: '비품 부족', category: '비품' },
   { id: 4, icon: 'alert', label: '기타', category: '기타' },
 ];
+const AREAS = ['남자', '여자', '공용·장애인'];
+const SPOTS = ['대변기', '소변기', '세면대', '바닥', '거울', '기타'];
+
+function Chip({ label, on, onPress }) {
+  return (
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={[s.chip, on && s.chipOn]}>
+      <Text style={[s.chipText, on && s.chipTextOn]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function ComplaintScreen({ onBack, onHome }) {
   const [cat, setCat] = useState(0);
+  const [area, setArea] = useState('');
+  const [spot, setSpot] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [receipt, setReceipt] = useState(null);
@@ -24,7 +36,8 @@ export default function ComplaintScreen({ onBack, onHome }) {
     if (!chosen || busy) return;
     setBusy(true); setErr('');
     try {
-      const res = await submitComplaint(chosen.category, chosen.label, null);
+      const loc = [area, spot].filter(Boolean).join(' ');
+      const res = await submitComplaint(chosen.category, loc || chosen.label, loc || null);
       setReceipt(res.reception_no);
     } catch (e) {
       setErr('접수에 실패했습니다. 잠시 후 다시 시도해 주세요.');
@@ -64,13 +77,12 @@ export default function ComplaintScreen({ onBack, onHome }) {
         })}
       </View>
 
-      <View style={s.photo}>
-        <View style={s.photoIcon}><Icon name="image" size={26} color={colors.primary} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.photoTitle}>사진 첨부 (선택)</Text>
-          <Text style={s.photoSub}>사진을 함께 보내주시면 더 빠르게 처리됩니다</Text>
-        </View>
-        <View style={s.photoBtn}><Text style={s.photoBtnText}>사진 촬영</Text></View>
+      <Text style={s.q}>어디가 불편하셨나요? <Text style={s.qOpt}>(선택)</Text></Text>
+      <View style={s.chipsRow}>
+        {AREAS.map((a) => <Chip key={a} label={a} on={area === a} onPress={() => setArea(area === a ? '' : a)} />)}
+      </View>
+      <View style={[s.chipsRow, { marginBottom: 22 }]}>
+        {SPOTS.map((sp) => <Chip key={sp} label={sp} on={spot === sp} onPress={() => setSpot(spot === sp ? '' : sp)} />)}
       </View>
 
       {!!err && <Text style={s.err}>{err}</Text>}
@@ -89,6 +101,12 @@ export default function ComplaintScreen({ onBack, onHome }) {
 const s = StyleSheet.create({
   card: { backgroundColor: '#fff', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, ...shadow(16, 0.06) },
   q: { fontSize: 23, fontWeight: '700', color: colors.text, marginBottom: 14, fontFamily: FONT },
+  qOpt: { fontSize: 18, fontWeight: '500', color: colors.subtle },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 12 },
+  chip: { paddingVertical: 14, paddingHorizontal: 22, borderRadius: 14, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: '#fff' },
+  chipOn: { borderWidth: 2, borderColor: colors.primary, backgroundColor: 'rgba(44,108,208,0.06)' },
+  chipText: { fontSize: 20, fontWeight: '700', color: colors.muted, fontFamily: FONT },
+  chipTextOn: { color: colors.primary },
   cats: { flexDirection: 'row', gap: 14, marginBottom: 22 },
   cat: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 18, paddingVertical: 24, alignItems: 'center' },
   catSel: { borderWidth: 3, borderColor: colors.primary, backgroundColor: 'rgba(44,108,208,0.06)' },
