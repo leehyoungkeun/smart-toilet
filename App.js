@@ -1,6 +1,6 @@
 // 스마트 공중화장실 키오스크 — 루트
 // 가로형 태블릿 (Landscape) 기준. app.json 에서 orientation: "landscape" 권장.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StatusBar, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppHeader } from './ui';
@@ -59,15 +59,29 @@ function Gate() {
   return <Kiosk />;
 }
 
+const IDLE_MS = 60000; // 무동작 1분 → 홈 복귀
+
 function Kiosk() {
   const { locationName } = useKiosk();
   const [screen, setScreen] = useState('home');
   const [now, setNow] = useState(new Date());
+  const idleRef = useRef(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // 무동작 타이머: 홈이 아닐 때만 작동, 화면 전환/터치 시 리셋
+  const resetIdle = useCallback(() => {
+    if (idleRef.current) clearTimeout(idleRef.current);
+    idleRef.current = setTimeout(() => setScreen('home'), IDLE_MS);
+  }, []);
+  useEffect(() => {
+    if (idleRef.current) clearTimeout(idleRef.current);
+    if (screen !== 'home') resetIdle();
+    return () => { if (idleRef.current) clearTimeout(idleRef.current); };
+  }, [screen, resetIdle]);
 
   const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   const date = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())} (${DAYS[now.getDay()]})`;
@@ -76,7 +90,7 @@ function Kiosk() {
   const home = () => setScreen('home');
 
   return (
-    <View style={s.root}>
+    <View style={s.root} onStartShouldSetResponderCapture={() => { if (screen !== 'home') resetIdle(); return false; }}>
       <StatusBar hidden />
       <AppHeader title={locationName} time={time} date={date} onBrandPress={home} onAdminPress={() => setScreen('admin')} />
       <View style={{ flex: 1 }}>
