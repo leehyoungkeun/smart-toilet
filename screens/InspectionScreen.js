@@ -1,5 +1,5 @@
-// 화장실 점검 — 청소 후 점검표를 한 화면에 펼쳐 체크 → 담당자 → PIN → 청소완료
-// 시간대 구분 없음(클릭 시각이 로그에 남음). 하루 청소 횟수 카운트 + 이력.
+// 화장실 점검 — 청소완료 점검표(관리자 전용)
+// 진입 시 PIN 인증(추후 QR로 교체) → 점검표 한 화면 체크 → 담당자 → 청소완료
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,7 +7,7 @@ import Icon from '../icons';
 import { BackHeader } from '../ui';
 import { colors, radius, FONT } from '../theme';
 import { useKiosk } from '../context/KioskContext';
-import { getCleaningLogs, recordCleaning } from '../lib/api';
+import { getCleaningLogs, recordCleaning, verifyAdminPin } from '../lib/api';
 
 // 관리점검표 항목 (사진 기준 표준안 — 필요 시 수정)
 const CHECK = [
@@ -38,7 +38,8 @@ const isToday = (iso) => { try { return new Date(iso).toDateString() === new Dat
 export default function InspectionScreen({ onBack }) {
   const { locationId } = useKiosk();
   const [cleanLogs, setCleanLogs] = useState(null);
-  const [mode, setMode] = useState('list'); // 'list' | 'checklist'
+  const [mode, setMode] = useState('list');   // 'list' | 'pin' | 'checklist'
+  const [adminPin, setAdminPin] = useState('');
 
   const load = useCallback(async () => {
     try { setCleanLogs(await getCleaningLogs(locationId)); }
@@ -46,8 +47,11 @@ export default function InspectionScreen({ onBack }) {
   }, [locationId]);
   useEffect(() => { load(); }, [load]);
 
+  if (mode === 'pin') {
+    return <PinGate onCancel={() => setMode('list')} onOk={(p) => { setAdminPin(p); setMode('checklist'); }} />;
+  }
   if (mode === 'checklist') {
-    return <Checklist onCancel={() => setMode('list')} onDone={() => { setMode('list'); load(); }} />;
+    return <Checklist adminPin={adminPin} onCancel={() => setMode('list')} onDone={() => { setMode('list'); load(); }} />;
   }
 
   const todayLogs = (cleanLogs || []).filter((l) => isToday(l.cleaned_at));
@@ -64,7 +68,7 @@ export default function InspectionScreen({ onBack }) {
           <Text style={s.cleanCount}>{todayCount}<Text style={s.cleanUnit}>회</Text></Text>
           <Text style={s.cleanMeta}>최근 청소 {lastClean}</Text>
         </View>
-        <TouchableOpacity activeOpacity={0.9} onPress={() => setMode('checklist')} style={s.cleanBtn}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setMode('pin')} style={s.cleanBtn}>
           <Icon name="clipboard" size={26} color={colors.primary} />
           <Text style={s.cleanBtnText}>청소완료 점검표</Text>
         </TouchableOpacity>
@@ -102,11 +106,52 @@ export default function InspectionScreen({ onBack }) {
   );
 }
 
-// 한 화면에 점검표 전 항목 펼침 → 체크 → 담당자·PIN → 청소완료
-function Checklist({ onCancel, onDone }) {
+// 진입 게이트 — 관리자 PIN 인증 (추후 QR 스캔으로 교체)
+function PinGate({ onCancel, onOk }) {
+  const [pin, setPin] = useState('');
+  const [err, setErr] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const dots = '●'.repeat(pin.length) + '○'.repeat(4 - pin.length);
+
+  const press = async (d) => {
+    if (pin.length >= 4 || busy) return;
+    const np = pin + d;
+    if (np.length < 4) { setPin(np); setErr(false); return; }
+    setPin(np); setBusy(true);
+    let ok = false;
+    try { ok = await verifyAdminPin(np); } catch (e) { ok = false; }
+    setBusy(false);
+    if (ok) onOk(np);
+    else { setPin(''); setErr(true); }
+  };
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+  return (
+    <View style={s.pinRoot}>
+      <View style={s.pinCard}>
+        <View style={s.pinLock}><Icon name="clipboard" size={30} color={colors.primary} /></View>
+        <Text style={s.pinTitle}>청소완료 점검표 · 관리자 인증</Text>
+        <Text style={s.pinSub}>관리자만 이용할 수 있습니다. PIN을 입력하세요.</Text>
+        <Text style={s.pinDots}>{busy ? '확인 중…' : dots}</Text>
+        {err && <Text style={s.pinErr}>PIN이 일치하지 않습니다. 다시 입력해 주세요.</Text>}
+        <View style={s.pad}>
+          {keys.map((k) => (
+            <TouchableOpacity key={k} activeOpacity={0.7} onPress={() => press(k)} style={s.padKey}><Text style={s.padKeyText}>{k}</Text></TouchableOpacity>
+          ))}
+          <TouchableOpacity activeOpacity={0.7} onPress={onCancel} style={s.padBlank}><Text style={s.padCancel}>취소</Text></TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => press('0')} style={s.padKey}><Text style={s.padKeyText}>0</Text></TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => { setPin(''); setErr(false); }} style={s.padBlank}><Icon name="back" size={26} color={colors.muted} /></TouchableOpacity>
+        </View>
+        <Text style={s.pinHint}>추후 QR 사원증 스캔으로 교체 예정</Text>
+      </View>
+    </View>
+  );
+}
+
+// 점검표 한 화면 체크 → 담당자 → 청소완료 (PIN은 진입 시 인증됨)
+function Checklist({ adminPin, onCancel, onDone }) {
   const [checks, setChecks] = useState(CHECK.map(() => true));
   const [cleaner, setCleaner] = useState('');
-  const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -116,13 +161,13 @@ function Checklist({ onCancel, onDone }) {
   const setAll = (v) => setChecks(CHECK.map(() => v));
 
   const submit = async () => {
-    if (pin.length < 4 || checkedCount === 0 || busy) return;
+    if (checkedCount === 0 || busy) return;
     setBusy(true); setErr('');
     try {
       const items = CHECK.filter((_, i) => checks[i]);
-      await recordCleaning(pin, cleaner, null, items);
+      await recordCleaning(adminPin, cleaner, null, items);
       onDone();
-    } catch (e) { setErr('PIN이 일치하지 않거나 기록에 실패했습니다.'); setBusy(false); }
+    } catch (e) { setErr('기록에 실패했습니다. 다시 시도해 주세요.'); setBusy(false); }
   };
 
   return (
@@ -138,7 +183,6 @@ function Checklist({ onCancel, onDone }) {
         </View>
       </View>
 
-      {/* 점검표 전 항목 (스크롤 없이 한 화면) */}
       <View style={s.grid}>
         {CHECK.map((c, i) => (
           <TouchableOpacity key={i} activeOpacity={0.8} onPress={() => toggle(i)} style={[s.cell, checks[i] && s.cellOn]}>
@@ -148,11 +192,9 @@ function Checklist({ onCancel, onDone }) {
         ))}
       </View>
 
-      {/* 마무리: 담당자 + PIN + 완료 */}
       <View style={s.footer}>
         <TextInput style={[s.input, { flex: 1 }]} value={cleaner} onChangeText={setCleaner} placeholder="담당자 이름 (선택)" placeholderTextColor={colors.subtle} />
-        <TextInput style={[s.input, { width: 200 }]} value={pin} onChangeText={(t) => setPin(t.replace(/\D/g, ''))} placeholder="관리자 PIN (4자리)" placeholderTextColor={colors.subtle} keyboardType="number-pad" secureTextEntry maxLength={4} />
-        <TouchableOpacity activeOpacity={0.9} onPress={submit} style={[s.doneBtn, (pin.length < 4 || checkedCount === 0 || busy) && { opacity: 0.5 }]} disabled={pin.length < 4 || checkedCount === 0 || busy}>
+        <TouchableOpacity activeOpacity={0.9} onPress={submit} style={[s.doneBtn, (checkedCount === 0 || busy) && { opacity: 0.5 }]} disabled={checkedCount === 0 || busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.doneBtnText}>청소완료</Text>}
         </TouchableOpacity>
       </View>
@@ -177,6 +219,21 @@ const s = StyleSheet.create({
   rowSub: { fontSize: 17, color: colors.muted, fontFamily: FONT },
   rowTime: { fontSize: 18, fontWeight: '600', color: colors.subtle, fontFamily: FONT },
 
+  // PIN 게이트
+  pinRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  pinCard: { width: 440, maxWidth: '100%', backgroundColor: '#fff', borderRadius: radius.xl, padding: 34, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  pinLock: { width: 60, height: 60, borderRadius: 18, backgroundColor: colors.tintBg, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  pinTitle: { fontSize: 24, fontWeight: '700', color: colors.text, fontFamily: FONT, textAlign: 'center' },
+  pinSub: { fontSize: 16, color: colors.muted, marginTop: 6, textAlign: 'center', fontFamily: FONT },
+  pinDots: { fontSize: 32, letterSpacing: 6, color: colors.primary, marginVertical: 18, fontFamily: FONT },
+  pinErr: { fontSize: 15, color: colors.danger, fontWeight: '600', marginBottom: 6, fontFamily: FONT },
+  pad: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  padKey: { width: '31%', backgroundColor: '#F3F7FD', borderRadius: 14, paddingVertical: 18, alignItems: 'center' },
+  padKeyText: { fontSize: 28, fontWeight: '700', color: colors.text, fontFamily: FONT },
+  padBlank: { width: '31%', borderRadius: 14, paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
+  padCancel: { fontSize: 17, fontWeight: '600', color: colors.muted, fontFamily: FONT },
+  pinHint: { fontSize: 14, color: colors.subtle, marginTop: 16, fontFamily: FONT },
+
   // 점검표(한 화면)
   clRoot: { flex: 1, padding: 20, paddingHorizontal: 28 },
   clHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 },
@@ -194,7 +251,7 @@ const s = StyleSheet.create({
 
   footer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 },
   input: { height: 58, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: '#F7F9FD', paddingHorizontal: 18, fontSize: 20, color: colors.text, fontFamily: FONT },
-  doneBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 18, paddingHorizontal: 40, alignItems: 'center', justifyContent: 'center' },
+  doneBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 18, paddingHorizontal: 48, alignItems: 'center', justifyContent: 'center' },
   doneBtnText: { color: '#fff', fontSize: 22, fontWeight: '800', fontFamily: FONT },
   clErr: { fontSize: 16, color: colors.danger, fontWeight: '600', marginTop: 10, fontFamily: FONT },
 });
