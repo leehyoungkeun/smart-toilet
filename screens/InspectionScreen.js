@@ -142,7 +142,7 @@ function Checklist({ onCancel, onDone }) {
       <View style={s.grid}>
         {CHECK.map((c, i) => (
           <TouchableOpacity key={i} activeOpacity={0.8} onPress={() => toggle(i)} style={[s.cell, checks[i] && s.cellOn]}>
-            <View style={[s.box, checks[i] && s.boxOn]}>{checks[i] && <Icon name="check" size={15} color="#fff" strokeWidth={3} />}</View>
+            <View style={[s.box, checks[i] && s.boxOn]}>{checks[i] && <Icon name="check" size={19} color="#fff" strokeWidth={3} />}</View>
             <Text style={s.cellLabel} numberOfLines={1}>{c.title}</Text>
           </TouchableOpacity>
         ))}
@@ -185,12 +185,12 @@ const s = StyleSheet.create({
   clGhost: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: '#fff' },
   clGhostText: { fontSize: 16, fontWeight: '700', color: colors.primary, fontFamily: FONT },
 
-  grid: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignContent: 'flex-start' },
-  cell: { flexBasis: '31.8%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14 },
+  grid: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignContent: 'space-between' },
+  cell: { flexBasis: '31.6%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 14, paddingVertical: 20, paddingHorizontal: 18 },
   cellOn: { borderColor: colors.primary, backgroundColor: 'rgba(44,108,208,0.06)' },
-  box: { width: 26, height: 26, borderRadius: 7, borderWidth: 2, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  box: { width: 32, height: 32, borderRadius: 8, borderWidth: 2, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
   boxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  cellLabel: { flex: 1, fontSize: 17, fontWeight: '600', color: colors.text, fontFamily: FONT },
+  cellLabel: { flex: 1, fontSize: 22, fontWeight: '700', color: colors.text, fontFamily: FONT },
 
   footer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 },
   input: { height: 58, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: '#F7F9FD', paddingHorizontal: 18, fontSize: 20, color: colors.text, fontFamily: FONT },
