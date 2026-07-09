@@ -59,7 +59,8 @@ function Gate() {
   return <Kiosk />;
 }
 
-const IDLE_MS = 60000; // 무동작 1분 → 홈 복귀
+// 무동작 자동 복귀 시간(ms): 점검은 3분, 나머지는 1분
+const idleFor = (sc) => (sc === 'check' ? 180000 : 60000);
 
 function Kiosk() {
   const { locationName } = useKiosk();
@@ -73,13 +74,13 @@ function Kiosk() {
   }, []);
 
   // 무동작 타이머: 홈이 아닐 때만 작동, 화면 전환/터치 시 리셋
-  const resetIdle = useCallback(() => {
+  const resetIdle = useCallback((ms) => {
     if (idleRef.current) clearTimeout(idleRef.current);
-    idleRef.current = setTimeout(() => setScreen('home'), IDLE_MS);
+    idleRef.current = setTimeout(() => setScreen('home'), ms);
   }, []);
   useEffect(() => {
     if (idleRef.current) clearTimeout(idleRef.current);
-    if (screen !== 'home') resetIdle();
+    if (screen !== 'home') resetIdle(idleFor(screen));
     return () => { if (idleRef.current) clearTimeout(idleRef.current); };
   }, [screen, resetIdle]);
 
@@ -90,7 +91,7 @@ function Kiosk() {
   const home = () => setScreen('home');
 
   return (
-    <View style={s.root} onStartShouldSetResponderCapture={() => { if (screen !== 'home') resetIdle(); return false; }}>
+    <View style={s.root} onStartShouldSetResponderCapture={() => { if (screen !== 'home') resetIdle(idleFor(screen)); return false; }}>
       <StatusBar hidden />
       <AppHeader title={locationName} time={time} date={date} onBrandPress={home} onAdminPress={() => setScreen('admin')} />
       <View style={{ flex: 1 }}>
