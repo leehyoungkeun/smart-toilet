@@ -2,6 +2,7 @@
 // status: 'loading' | 'pairing' | 'ready' | 'error'
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ensureSession, fetchLocation, claimDevice, heartbeat } from '../lib/kiosk';
+import * as hardware from '../lib/hardware';
 
 const KioskContext = createContext(null);
 
@@ -28,6 +29,22 @@ export function KioskProvider({ children }) {
     heartbeat().catch(() => {});
     hb.current = setInterval(() => heartbeat().catch(() => {}), 60000);
     return () => clearInterval(hb.current);
+  }, [state.status]);
+
+  // 하드웨어(NUC120 센서보드) USB 시리얼 연결 — 개발 빌드에서만 실동작(Expo Go는 no-op)
+  // 연결되면 보드가 5초마다 보내는 ENV,... 를 파싱해 자동으로 Supabase 업로드
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    let stop = false, timer = null;
+    const tryConnect = async () => {
+      if (stop) return;
+      try {
+        const ok = await hardware.connect();      // 성공 시 수신 시작(내부에서 recordEnvReading 호출)
+        if (!ok && !stop) timer = setTimeout(tryConnect, 10000); // 장치 없으면 10초 후 재시도
+      } catch (e) { if (!stop) timer = setTimeout(tryConnect, 10000); }
+    };
+    tryConnect();
+    return () => { stop = true; if (timer) clearTimeout(timer); hardware.disconnect(); };
   }, [state.status]);
 
   const pair = useCallback(async (code) => {
