@@ -7,6 +7,7 @@ import Icon from '../icons';
 import { BackHeader } from '../ui';
 import { colors, radius, shadow, FONT } from '../theme';
 import { createDispenseSession, subscribeDispenseSession, claimUrl } from '../lib/api';
+import * as hardware from '../lib/hardware';
 
 export default function SanitaryScreen({ onBack, onHome }) {
   const [step, setStep] = useState('loading'); // loading | scan | dispensing | done | error
@@ -30,7 +31,12 @@ export default function SanitaryScreen({ onBack, onHome }) {
       unsub.current = subscribeDispenseSession(session_id, (row) => {
         if (row.status === 'dispensed') {
           setStep('dispensing');
-          timer.current = setTimeout(() => setStep('done'), 1600);
+          // 하드웨어(NUC120)에 배출 명령 → 릴레이/모터 구동. Expo Go/미연결이면 즉시 성공(no-op).
+          const started = Date.now();
+          hardware.dispense().catch(() => {}).finally(() => {
+            const wait = Math.max(0, 1600 - (Date.now() - started)); // '지급중' 최소 노출
+            timer.current = setTimeout(() => setStep('done'), wait);
+          });
         }
       });
     } catch (e) {
