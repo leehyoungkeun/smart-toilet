@@ -39,9 +39,9 @@ static uint32_t millis(void){ return g_ms; }
 
 /* ── UART ─────────────────────────────────────────────── */
 static void uart_puts(const char *s){
-    while(*s){ while(UART0->FSR & UART_FSR_TX_FULL_Msk); UART0->DATA = *s++; }
+    while(*s){ while(UART0->FSR & UART_FSR_TX_FULL_Msk){} UART0->DATA = *s++; }
 }
-void UART0_IRQHandler(void){
+void UART02_IRQHandler(void){   /* NUC100: UART0/UART2 공유 인터럽트 */
     while(!(UART0->FSR & UART_FSR_RX_EMPTY_Msk)){
         char c = UART0->DATA;
         if(c=='\r') continue;
@@ -96,11 +96,11 @@ int main(void){
     SYS_Init();
     UART_Open(UART0, 115200);
     UART_EnableInt(UART0, UART_IER_RDA_IEN_Msk);
-    NVIC_EnableIRQ(UART0_IRQn);
+    NVIC_EnableIRQ(UART02_IRQn);
 
     /* 모터 핀 출력, 드롭센서 입력(내부 풀업=QUASI) */
-    GPIO_SetMode(PB, BIT2|BIT3|BIT4|BIT5, GPIO_MODE_OUTPUT);
-    GPIO_SetMode(PB, BIT6, GPIO_MODE_QUASI);
+    GPIO_SetMode(PB, BIT2|BIT3|BIT4|BIT5, GPIO_PMD_OUTPUT);
+    GPIO_SetMode(PB, BIT6, GPIO_PMD_QUASI);
     motor_stop();
 
     SysTick_Config(SystemCoreClock/1000);                 /* 1ms tick */
