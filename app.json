@@ -6,8 +6,12 @@
     "orientation": "landscape",
     "userInterfaceStyle": "light",
     "backgroundColor": "#EAF0F9",
-    "assetBundlePatterns": ["**/*"],
-    "plugins": ["expo-dev-client"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-dev-client"
+    ],
     "android": {
       "package": "kr.go.smarttoilet.kiosk",
       "screenOrientation": "landscape"
@@ -15,6 +19,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "kr.go.smarttoilet.kiosk"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cc05cb3f-25bf-4e5e-b0e0-b666569f671d"
+      }
+    },
+    "owner": "holonmedica"
   }
 }
