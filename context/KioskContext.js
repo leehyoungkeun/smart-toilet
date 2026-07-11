@@ -31,19 +31,17 @@ export function KioskProvider({ children }) {
     return () => clearInterval(hb.current);
   }, [state.status]);
 
-  // 하드웨어(NUC120 센서보드) USB 시리얼 연결 — 개발 빌드에서만 실동작(Expo Go는 no-op)
-  // 연결되면 보드가 5초마다 보내는 ENV,... 를 파싱해 자동으로 Supabase 업로드
+  // 하드웨어(NUC120 센서보드) USB 시리얼 — 개발 빌드에서만 실동작(Expo Go는 no-op)
+  // 6초마다 연결 상태 점검 → USB를 뺐다 꽂아도(장치ID 변경) 자동 재연결. ENV 수신 시 Supabase 자동 업로드.
   useEffect(() => {
     if (state.status !== 'ready') return;
     let stop = false, timer = null;
-    const tryConnect = async () => {
+    const tick = async () => {
       if (stop) return;
-      try {
-        const ok = await hardware.connect();      // 성공 시 수신 시작(내부에서 recordEnvReading 호출)
-        if (!ok && !stop) timer = setTimeout(tryConnect, 10000); // 장치 없으면 10초 후 재시도
-      } catch (e) { if (!stop) timer = setTimeout(tryConnect, 10000); }
+      try { await hardware.ensureConnected(); } catch (e) {}
+      if (!stop) timer = setTimeout(tick, 6000);
     };
-    tryConnect();
+    tick();
     return () => { stop = true; if (timer) clearTimeout(timer); hardware.disconnect(); };
   }, [state.status]);
 
