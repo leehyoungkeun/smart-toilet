@@ -41,7 +41,10 @@ void SysTick_Handler(void){ g_ms++; }
 static uint32_t millis(void){ return g_ms; }
 
 static void uart_puts(const char *s){
-    while(*s) UART_WRITE(UART0, *s++);
+    while(*s){
+        while(UART0->FSR & UART_FSR_TX_FULL_Msk);   /* TX FIFO full 대기 */
+        UART0->DATA = *s++;
+    }
 }
 static void uart_printf_env(float t, float h, float a, float p){
     char buf[48];
@@ -52,8 +55,8 @@ static void uart_printf_env(float t, float h, float a, float p){
 
 /* UART0 수신 인터럽트 → 줄 단위로 조립 */
 void UART0_IRQHandler(void){
-    while(UART_GET_RX_EMPTY(UART0) == 0){
-        char c = UART_READ(UART0);
+    while(!(UART0->FSR & UART_FSR_RX_EMPTY_Msk)){   /* NUC100 V3: FSR/DATA 직접 접근 */
+        char c = UART0->DATA;
         if(c=='\r') continue;
         if(c=='\n'){ rxLine[rxLen]=0; strcpy(cmd, rxLine); rxLen=0; lineReady=1; }
         else if(rxLen < sizeof(rxLine)-1){ rxLine[rxLen++]=c; }
@@ -98,9 +101,9 @@ static float read_pm25(void){ /* TODO ADC(먼지센서) → ㎍/㎥ 환산 */ re
 static void hw_init(void){
     SYS_UnlockReg();
     /* TODO: 클럭/멀티펑션핀 설정 (SYS_Init) — BSP 예제 참고 */
-    /* UART0 115200 8N1 */
+    /* UART0 115200 8N1 (UART_TxRx 샘플의 SYS_Init/멀티펑션핀 설정 재사용) */
     UART_Open(UART0, 115200);
-    UART_ENABLE_INT(UART0, UART_INTEN_RDAIEN_Msk);
+    UART_EnableInt(UART0, UART_IER_RDA_IEN_Msk);   /* NUC100 V3: IER/RDA */
     NVIC_EnableIRQ(UART0_IRQn);
     /* PWM0 ch0 (모터 PWMA), 20kHz 예시 */
     PWM_ConfigOutputChannel(PWM0, 0, 20000, 0);
