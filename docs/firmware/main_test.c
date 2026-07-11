@@ -40,8 +40,15 @@
 static char rxLine[64]; static uint8_t rxLen = 0;
 static volatile uint8_t lineReady = 0; static char cmd[64];
 
-static void delay_us(uint32_t us){ CLK_SysTickDelay(us); }
-static void delay_ms(uint32_t ms){ while(ms--) CLK_SysTickDelay(1000); }
+/* ARM 코어 SysTick 직접 사용 (BSP 함수 CLK_SysTickDelay 의존 제거 — 어떤 BSP에서도 컴파일됨) */
+static void delay_us(uint32_t us){
+    SysTick->LOAD = us * (SystemCoreClock/1000000) - 1;   /* 24bit: 최대 ~335ms @50MHz */
+    SysTick->VAL  = 0;
+    SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
+    while(!(SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk)){}
+    SysTick->CTRL = 0;
+}
+static void delay_ms(uint32_t ms){ while(ms--) delay_us(1000); }
 
 static void uart_puts(const char *s){
     while(*s){ while(UART0->FSR & UART_FSR_TX_FULL_Msk){} UART0->DATA = *s++; }
