@@ -26,19 +26,32 @@
 | 전원 | 12V 어댑터 + 12V→3.3/5V 벅 | 모터 12V, 로직 3.3V |
 | 태블릿 전원 | **PD 패스스루 OTG 허브** | 충전+USB호스트 동시 |
 
-## 배선 (핀 예시 — 보드에 맞게 조정)
-| NUC100 | 연결 |
-|--------|------|
-| UART0 TXD/RXD | CH340 RXD/TXD |
-| I2C SCL/SDA | SHT31 |
-| ADC ch0 / ch1 | MQ-137 / 먼지센서 |
-| PWM0 ch0 | TB6612 **PWMA** |
-| GPIO PB2/PB3/PB4 | TB6612 **STBY/AIN1/AIN2** |
-| GPIO PB5 (풀업) | 드롭 광센서 (통과 시 LOW) |
-| TB6612 VM / VCC / GND | 12V / 3.3V / 공통 GND |
-| TB6612 AO1/AO2 | 모터 +/- |
+## 배선 (NUC120VE3DN / LQFP100 — 데이터시트 확정 핀)
+보드: **NuTiny-EVB-NUC120-LQFP100**, MCU **NUC120VE3DN** (128K/16K, 3 UART·2 I2C·8 PWM·8ch ADC·USB)
 
-⚠️ **공통 GND** 필수(NUC100·TB6612·센서·CH340). 모터 12V는 로직과 분리.
+| 기능 | NUC120 핀 | 연결 |
+|------|-----------|------|
+| UART0 TXD0 | **PB.1** (33) | CH340 RXD |
+| UART0 RXD0 | **PB.0** (32) | CH340 TXD |
+| I2C0 SCL | **PA.9** (11) | SHT31 SCL (+4.7K 풀업) |
+| I2C0 SDA | **PA.8** (12) | SHT31 SDA (+4.7K 풀업) |
+| ADC0 | **PA.0** (71) | MQ-137 아날로그 출력 |
+| ADC1 | **PA.1** (72) | 먼지센서 아날로그 출력 |
+| ADC 기준 | **VREF**(79) / **AVDD**(80) / **AVSS**(70) | 3~AVDD 기준전압, 아날로그 전원 |
+| 모터 STBY | **PB.2** (34) | TB6612 STBY |
+| 모터 AIN1 | **PB.3** (35) | TB6612 AIN1 |
+| 모터 AIN2 | **PB.4** (19) | TB6612 AIN2 |
+| 모터 PWMA | **PB.5** (20) | TB6612 PWMA (GPIO HIGH=풀스피드 / v2는 PWM) |
+| 드롭센서 | **PB.6** (21) | 광센서 (통과 시 LOW, Quasi 풀업) |
+| TB6612 VM/VCC/GND | — | 12V / 3.3V / 공통 GND |
+| TB6612 AO1/AO2 | — | 모터 +/- |
+
+※ 모터 속도제어(v2)로 PWM 쓸 경우: **PWM0=PA.12**(65) 등 PWM 전용핀 사용 → PWMA를 그 핀에 연결.
+⚠️ **공통 GND** 필수(NUC120·TB6612·센서·CH340). 모터 12V는 로직과 분리. ADC 쓰면 **VREF·AVDD·AVSS 배선 필수**.
+
+## 인터럽트 주의 (데이터시트 확정)
+- **UART0과 UART2가 IRQ #12 공유** → ISR 이름은 반드시 **`UART02_IRQHandler`**, enable은 **`NVIC_EnableIRQ(UART02_IRQn)`**.
+- GPIO 드롭센서 풀업: NUC120은 **Quasi-bidirectional 모드**(`GPIO_PMD_QUASI`)에서만 내부 풀업 동작.
 
 ## 시리얼 프로토콜 (한 줄씩, 115200 8N1)
 ```
