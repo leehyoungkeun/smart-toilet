@@ -5,6 +5,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import Icon from '../icons';
 import { colors, radius, FONT } from '../theme';
 import { verifyAdminPin, adminDashboard, adminSetInventory, adminUpdateComplaint } from '../lib/api';
+import * as hardware from '../lib/hardware';
 
 const fmt = (iso) => { try { const n = new Date(iso); const p = (x) => String(x).padStart(2, '0'); return `${p(n.getMonth() + 1)}.${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`; } catch { return ''; } };
 
@@ -116,11 +117,24 @@ const SAFETY = {
 const SAFETY_PILL = { normal: { l: '이상 없음', t: 'green' }, resolved: { l: '정상 종료', t: 'green' }, confirmed: { l: '확인 완료', t: 'blue' } };
 const CIVIL_PILL = { received: { l: '접수', t: 'blue' }, in_progress: { l: '처리중', t: 'amber' }, done: { l: '완료', t: 'green' } };
 
+const TEST_LABEL = { idle: '배출 테스트', testing: '동작 중…', ok: '딸깍! 성공', sim: '미연결(개발빌드 필요)', fail: '실패 · 미연결' };
+
 function Dashboard({ onExit, data, padStock, padCap, setPad, padSaved, onSave, onComplete }) {
   const padLow = padStock <= 10;
   const padColor = padLow ? '#E8950C' : '#1FA463';
   const complaints = data.recent_complaints || [];
   const safety = data.recent_safety || [];
+  const [testState, setTestState] = useState('idle');
+  const runTest = async () => {
+    if (testState === 'testing') return;
+    setTestState('testing');
+    try {
+      const r = await hardware.dispense();          // "DISPENSE" 전송 → 릴레이/모터 구동
+      setTestState(r && r.simulated ? 'sim' : 'ok'); // 하드웨어 없으면 simulated
+    } catch (e) { setTestState('fail'); }
+    setTimeout(() => setTestState('idle'), 2600);
+  };
+  const testColor = testState === 'ok' ? '#0F7A48' : testState === 'fail' ? colors.danger : testState === 'sim' ? '#B5730A' : colors.primary;
   return (
     <View style={s.dash}>
       <View style={s.dashHead}>
@@ -131,10 +145,18 @@ function Dashboard({ onExit, data, padStock, padCap, setPad, padSaved, onSave, o
             <Text style={s.dashSub}>현장 관리자 모드</Text>
           </View>
         </View>
-        <TouchableOpacity activeOpacity={0.8} onPress={onExit} style={s.exitBtn}>
-          <Icon name="back" size={18} color={colors.danger} />
-          <Text style={s.exitText}>나가기</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity activeOpacity={0.85} onPress={runTest} style={[s.testBtn, { borderColor: testColor }]}>
+            {testState === 'testing'
+              ? <ActivityIndicator size="small" color={testColor} />
+              : <Icon name="dispense" size={18} color={testColor} />}
+            <Text style={[s.testText, { color: testColor }]}>{TEST_LABEL[testState]}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.8} onPress={onExit} style={s.exitBtn}>
+            <Icon name="back" size={18} color={colors.danger} />
+            <Text style={s.exitText}>나가기</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={s.kpiRow}>
@@ -260,6 +282,8 @@ const s = StyleSheet.create({
   dashSub: { fontSize: 14, color: colors.muted, marginTop: 1, fontFamily: FONT },
   exitBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 13, paddingVertical: 11, paddingHorizontal: 18 },
   exitText: { fontSize: 16, fontWeight: '600', color: colors.danger, fontFamily: FONT },
+  testBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1.5, borderColor: colors.primary, borderRadius: 13, paddingVertical: 11, paddingHorizontal: 18, minWidth: 150, justifyContent: 'center' },
+  testText: { fontSize: 16, fontWeight: '700', fontFamily: FONT },
 
   kpiRow: { flexDirection: 'row', gap: 14, marginTop: 14 },
   kpi: { flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border },
