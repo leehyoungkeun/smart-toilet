@@ -14,7 +14,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "NuMicro.h"
+#include "NUC100Series.h"   /* NUC100 BSP V3.00.007 CMSIS 헤더 (M-series의 NuMicro.h 아님) */
 
 /* ── 핀 (보드에 맞게 조정) ─────────────────────────────── */
 /* UART0: PB.0=RXD, PB.1=TXD (샘플과 동일) */

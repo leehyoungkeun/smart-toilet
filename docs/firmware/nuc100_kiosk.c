@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "NuMicro.h"   /* BSP 헤더 (버전에 맞게) */
+#include "NUC100Series.h"   /* NUC100 BSP V3.00.007 CMSIS 헤더 */
 
 /* ── 핀 매핑 (보드에 맞게 수정) ─────────────────────────── */
 #define MOTOR_STBY   PB2   /* TB6612 STBY */
