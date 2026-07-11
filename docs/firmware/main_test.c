@@ -7,7 +7,7 @@
  *
  * 배선:
  *   UART0  : PB.1(TXD0,33)→CH340 RXD, PB.0(RXD0,32)→CH340 TXD, GND 공통
- *   DHT11  : DATA→PB.15(91), VCC→3.3V, GND→GND   (3핀 모듈이면 보드 풀업 있음)
+ *   DHT11  : DATA→PB.8(100), VCC→보드 VDD, GND→GND  (3핀 모듈이면 보드 풀업 있음)
  *   릴레이 : IN→PB.2(34)                          (active-low 모듈 가정, 아래 토글로 변경)
  *   LED    : PB.3(35) → 220Ω → GND
  *
@@ -21,7 +21,7 @@
 #include "NUC100Series.h"
 
 /* ── 핀 ─────────────────────────────────────────── */
-#define DHT_PIN     PB15          /* DHT11 DATA */
+#define DHT_PIN     PB8          /* DHT11 DATA */
 #define RELAY_PIN   PB2
 #define LED_PIN     PB3
 
@@ -60,10 +60,10 @@ static uint8_t dht[5];
 static int dht_read(void){
     uint32_t t;
     /* 1) 스타트: 18ms 이상 LOW → 30us HIGH → 입력 전환 */
-    GPIO_SetMode(PB, BIT15, GPIO_PMD_OUTPUT);
+    GPIO_SetMode(PB, BIT8, GPIO_PMD_OUTPUT);
     DHT_PIN = 0; delay_ms(20);
     DHT_PIN = 1; delay_us(30);
-    GPIO_SetMode(PB, BIT15, GPIO_PMD_INPUT);   /* 모듈/외부 풀업 필요 */
+    GPIO_SetMode(PB, BIT8, GPIO_PMD_INPUT);   /* 모듈/외부 풀업 필요 */
     /* 2) 응답: LOW 80us → HIGH 80us */
     t=0; while(DHT_PIN!=0){ if(++t>100000) return 0; }   /* DHT LOW 시작 대기 */
     t=0; while(DHT_PIN==0){ if(++t>100000) return 0; }   /* 80us LOW */
@@ -104,7 +104,7 @@ int main(void){
     /* 릴레이·LED 출력, DHT 초기 HIGH */
     GPIO_SetMode(PB, BIT2|BIT3, GPIO_PMD_OUTPUT);
     RELAY_OFF(); LED_OFF();
-    GPIO_SetMode(PB, BIT15, GPIO_PMD_OUTPUT); DHT_PIN = 1;
+    GPIO_SetMode(PB, BIT8, GPIO_PMD_OUTPUT); DHT_PIN = 1;
 
     uart_puts("READY\n");
 
