@@ -13,8 +13,7 @@
       "expo-dev-client"
     ],
     "android": {
-      "package": "kr.go.smarttoilet.kiosk",
-      "screenOrientation": "landscape"
+      "package": "kr.go.smarttoilet.kiosk"
     },
     "ios": {
       "supportsTablet": true,
